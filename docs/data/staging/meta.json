@@ -4,13 +4,13 @@
  "kdf": {
   "name": "PBKDF2",
   "hash": "SHA-256",
-  "iterations": 250000,
-  "salt": "lI6AkqbLDUovLsycOnhJZg=="
+  "iterations": 100000,
+  "salt": "H0vRhmmN/HVV8mLRs0cU3Q=="
  },
  "cipher": {
   "name": "AES-GCM",
   "length": 256,
-  "iv": "g0kw8R8vjGbi0nAm",
+  "iv": "jX9T/cWavMlhvMbJ",
   "tag": "appended-16-bytes"
  },
  "cards": [
@@ -24,5 +24,5 @@
   "lotte",
   "bc"
  ],
- "generated": "2026-11-05T15:40:54.031Z"
+ "generated": "2026-11-05T15:43:03.136Z"
 }

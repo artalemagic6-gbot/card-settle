@@ -28,7 +28,7 @@ for (const [card, rows] of Object.entries(by)) {
   index.cards[card] = { count: rows.length, sum: rows.reduce((s, x) => s + x.amount, 0) };
 }
 // Encrypt {index, cards:{card:rows}} with PBKDF2-SHA256 + AES-256-GCM (Web Crypto compatible)
-const ITER = 250000, salt = crypto.randomBytes(16), iv = crypto.randomBytes(12);
+const ITER = 100000, salt = crypto.randomBytes(16), iv = crypto.randomBytes(12);
 const key = crypto.pbkdf2Sync(pass, salt, ITER, 32, "sha256");
 const ci = crypto.createCipheriv("aes-256-gcm", key, iv);
 const ct = Buffer.concat([ci.update(JSON.stringify({ index, cards: by }), "utf8"), ci.final(), ci.getAuthTag()]);

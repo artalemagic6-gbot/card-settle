@@ -4,16 +4,40 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const clone=o=>JSON.parse(JSON.stringify(o));const now=()=>new Date().toISOString();
 const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 // --- gate ---
-async function decrypt(pass){const meta=await (await fetch("./data/staging/meta.json",{cache:"no-store"})).json();
- const enc=await (await fetch("./data/staging/"+meta.file,{cache:"no-store"})).text();
+async function decrypt(pass){
+ const meta=await (await fetch("./data/staging/meta.json",{cache:"no-store"})).json();
+ const encRes=await fetch("./data/staging/"+meta.file,{cache:"no-store"});
+ if(!encRes.ok) throw new Error("내역 파일을 못 불러왔어요 ("+encRes.status+")");
+ const enc=(await encRes.text()).trim();
  const km=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);
  const key=await crypto.subtle.deriveKey({name:"PBKDF2",hash:meta.kdf.hash,iterations:meta.kdf.iterations,salt:b64(meta.kdf.salt)},km,{name:"AES-GCM",length:256},false,["decrypt"]);
- return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(meta.cipher.iv)},key,b64(enc.trim()))))}
-async function unlock(pass){pass=String(pass||"").trim();try{STG=await decrypt(pass);sessionStorage.setItem("cs_pass",pass);$("#gate").hidden=true;$("#main").hidden=false;await start();return true}
- catch(e){console.warn("unlock",e);sessionStorage.removeItem("cs_pass");return false}}
-$("#gf").onsubmit=async e=>{e.preventDefault();$("#gerr").textContent="확인 중…";const v=$("#gp").value;if(!await unlock(v))$("#gerr").textContent="암호가 틀렸어요. 공백 없이 다시 입력해 주세요.";};
+ const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(meta.cipher.iv)},key,b64(enc));
+ return JSON.parse(new TextDecoder().decode(pt));
+}
+function tick(){return new Promise(r=>setTimeout(r,30))}
+async function unlock(pass){pass=String(pass||"").trim();
+ try{
+  await tick();
+  STG=await decrypt(pass);
+  await start();
+  sessionStorage.setItem("cs_pass",pass);
+  $("#gate").hidden=true;$("#main").hidden=false;
+  return true;
+ }catch(e){
+  console.warn("unlock",e);
+  sessionStorage.removeItem("cs_pass");
+  $("#gate").hidden=false;$("#main").hidden=true;
+  const msg=String(e&&e.message||e);
+  if(/OperationError|decrypt|AES/i.test(msg)||e.name==="OperationError") return {ok:false,err:"암호가 틀렸어요."};
+  return {ok:false,err:"입장 실패: "+msg};
+ }
+}
+$("#gf").onsubmit=async e=>{e.preventDefault();const btn=e.submitter||$("#gf").querySelector("button");
+ $("#gerr").textContent="확인 중…";if(btn)btn.disabled=true;
+ try{const r=await unlock($("#gp").value);if(r!==true)$("#gerr").textContent=(r&&r.err)||"암호가 틀렸어요.";}
+ finally{if(btn)btn.disabled=false}};
 document.getElementById("gshow")?.addEventListener("change",e=>{$("#gp").type=e.target.checked?"text":"password"});
-(async()=>{const p=sessionStorage.getItem("cs_pass");if(p&&await unlock(p))return;$("#gate").hidden=false})();
+(async()=>{try{const p=sessionStorage.getItem("cs_pass");if(p){const r=await unlock(p);if(r===true)return}}catch(_){}$("#gate").hidden=false})();
 // --- data ---
 function shortName(m){let s=String(m||"").trim();
  s=s.replace(/^(네이버페이|naverpay|카카오페이|kakaopay|토스페이|토스|페이코|payco|NHN|KG이니시스|나이스페이|다날|쿠팡페이)[\s_\-:()（）]*/i,"").replace(/\(주\)|㈜|주식회사|\s+/g," ").trim();
