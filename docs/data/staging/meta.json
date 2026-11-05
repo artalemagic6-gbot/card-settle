@@ -5,12 +5,12 @@
   "name": "PBKDF2",
   "hash": "SHA-256",
   "iterations": 250000,
-  "salt": "xauxO++jMwZPNNP2ZcVBPA=="
+  "salt": "lI6AkqbLDUovLsycOnhJZg=="
  },
  "cipher": {
   "name": "AES-GCM",
   "length": 256,
-  "iv": "rUXi0PoOZPfohbx1",
+  "iv": "g0kw8R8vjGbi0nAm",
   "tag": "appended-16-bytes"
  },
  "cards": [
@@ -24,5 +24,5 @@
   "lotte",
   "bc"
  ],
- "generated": "2026-11-05T15:38:30.850Z"
+ "generated": "2026-11-05T15:40:54.031Z"
 }
