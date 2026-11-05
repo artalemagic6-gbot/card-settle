@@ -9,3 +9,5 @@ main{padding:12px;max-width:980px;margin:auto}.tabs{display:flex;gap:6px;margin-
 input,select{background:#0e1115;color:#eee;border:1px solid #333b46;border-radius:5px;padding:4px 6px}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:4px;border-bottom:1px solid #262c35;text-align:left}td.n{text-align:right}
 td input.m{width:100%}tr.virtual{color:#fbbf24}tr.settled{opacity:.45}
+.gate{display:flex;min-height:100vh;align-items:center;justify-content:center}.gate form{display:flex;gap:6px}
+tr.done{opacity:.35}#dirty{margin:0 8px;color:#f59e0b}.warn{color:#f87171}
