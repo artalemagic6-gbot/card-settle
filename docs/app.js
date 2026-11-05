@@ -21,12 +21,12 @@ async function unlock(pass){pass=String(pass||"").trim();
   STG=await decrypt(pass);
   await start();
   sessionStorage.setItem("cs_pass",pass);
-  $("#gate").hidden=true;$("#main").hidden=false;
+  const g=$("#gate"),m=$("#main");if(g){g.hidden=true;g.style.display="none"}if(m){m.hidden=false;m.style.display=""}
   return true;
  }catch(e){
   console.warn("unlock",e);
   sessionStorage.removeItem("cs_pass");
-  $("#gate").hidden=false;$("#main").hidden=true;
+  const g=$("#gate"),m=$("#main");if(g){g.hidden=false;g.style.display=""}if(m){m.hidden=true;m.style.display="none"}
   const msg=String(e&&e.message||e);
   if(/OperationError|decrypt|AES/i.test(msg)||e.name==="OperationError") return {ok:false,err:"암호가 틀렸어요."};
   return {ok:false,err:"입장 실패: "+msg};
@@ -37,7 +37,7 @@ $("#gf").onsubmit=async e=>{e.preventDefault();const btn=e.submitter||$("#gf").q
  try{const r=await unlock($("#gp").value);if(r!==true)$("#gerr").textContent=(r&&r.err)||"암호가 틀렸어요.";}
  finally{if(btn)btn.disabled=false}};
 document.getElementById("gshow")?.addEventListener("change",e=>{$("#gp").type=e.target.checked?"text":"password"});
-(async()=>{try{const p=sessionStorage.getItem("cs_pass");if(p){const r=await unlock(p);if(r===true)return}}catch(_){}$("#gate").hidden=false})();
+(async()=>{try{const p=sessionStorage.getItem("cs_pass");if(p){const r=await unlock(p);if(r===true)return}}catch(_){}const g=$("#gate");if(g){g.hidden=false;g.style.display=""}})();
 // --- data ---
 function shortName(m){let s=String(m||"").trim();
  s=s.replace(/^(네이버페이|naverpay|카카오페이|kakaopay|토스페이|토스|페이코|payco|NHN|KG이니시스|나이스페이|다날|쿠팡페이)[\s_\-:()（）]*/i,"").replace(/\(주\)|㈜|주식회사|\s+/g," ").trim();
