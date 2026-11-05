@@ -1,0 +1,14 @@
+node_modules/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+uploads/
+dist/
+.env
+*.log
+.card-settle-passphrase
+private/
+*.xlsx
+docs/data/staging/*.json
+!docs/data/staging/meta.json

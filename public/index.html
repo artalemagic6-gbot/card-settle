@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>카드 정산</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <div>
+    <h1>카드 정산</h1>
+    <div class="sub">이용금액 → 카드내역 불러오기 → 분류·메모 → 입금필요 0 · DB 저장</div>
+  </div>
+  <nav>
+    <button class="navbtn on" data-view="settle">정산</button>
+    <button class="navbtn" data-view="ledger">가계부</button>
+    <button class="navbtn" data-view="rules">규칙</button>
+  </nav>
+</header>
+
+<main>
+  <section id="view-settle">
+    <div class="bar">
+      <div class="tabs" id="accountTabs"></div>
+      <div class="muted" id="accountHint"></div>
+    </div>
+
+    <div class="layout">
+      <aside class="side" id="cardSide"></aside>
+      <div class="maincol">
+        <div class="summary" id="summary"></div>
+
+        <div class="panel">
+          <div class="panel-h">이용금액 · 잔고</div>
+          <div class="grid3">
+            <label>이용금액<input type="number" id="inpUsed" /></label>
+            <label id="balLabel">계좌잔고<input type="number" id="inpBalance" /></label>
+            <label>메모<input type="text" id="inpMemo" placeholder="14일 결제분" /></label>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="btnSaveMeta">반영</button>
+            <span class="muted" id="needInline"></span>
+          </div>
+        </div>
+
+        <div class="panel load-panel">
+          <div class="panel-h">카드내역</div>
+          <div class="staging-preview" id="stagingPreview">대기 0건 · 합계 0원</div>
+          <div class="actions">
+            <button class="btn primary bigbtn" id="btnLoadStaging">카드내역 불러오기</button>
+            <span class="muted" id="loadMsg"></span>
+          </div>
+          <details class="secondary">
+            <summary>직접 업로드 (선택)</summary>
+            <div class="actions">
+              <label class="btn filebtn">엑셀 직접 업로드<input type="file" id="fileUpload" accept=".xlsx,.xls" hidden /></label>
+              <button class="btn" id="btnSample">샘플→대기</button>
+              <span class="muted" id="uploadMsg"></span>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">현황</div>
+          <div class="statrow"><span>미정산 합</span><b id="openSum">0</b></div>
+          <div class="statrow"><span>입금필요</span><b id="needShow">0</b></div>
+          <div class="statrow"><span>입금완료 (계좌잔고)</span><b id="doneShow">0</b></div>
+          <div class="statrow"><span>차이 (합 − 필요)</span><b id="diffShow">0</b></div>
+          <div class="muted" id="diffHint"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">수기 · 차액</div>
+          <div class="grid3">
+            <label>금액<input type="number" id="addAmt" /></label>
+            <label>내용<input type="text" id="addMerchant" placeholder="카페 / 개인차액" /></label>
+            <label>날짜<input type="text" id="addDate" placeholder="2026-11-05" /></label>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="btnAdd">수기 추가</button>
+            <button class="btn" id="btnAdj">개인차액 가상내역</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="bar">
+            <div class="panel-h" style="margin:0">미정산 목록</div>
+            <div class="actions">
+              <select id="catFilter"><option value="all">전체</option></select>
+              <input type="search" id="q" placeholder="검색" />
+              <label class="chk"><input type="checkbox" id="showSettled" /> 완료포함</label>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:28px"><input type="checkbox" id="checkAll" /></th>
+                  <th>날짜</th><th>내용</th><th class="r">금액</th><th>분류</th><th>메모</th><th>상태</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="btnMarkSettled">선택 정산완료</button>
+            <button class="btn" id="btnMarkOpen">선택 미정산</button>
+            <span class="muted">삭제하지 않음 · 가계부에 남음</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-ledger" class="hidden">
+    <div class="catgrid" id="ledgerCats"></div>
+    <div class="panel">
+      <div class="bar">
+        <div class="panel-h" style="margin:0">전체 내역</div>
+        <select id="ledgerCat"><option value="all">전체</option></select>
+      </div>
+      <div class="table-wrap tall">
+        <table>
+          <thead><tr><th>카드</th><th>날짜</th><th>내용</th><th class="r">금액</th><th>분류</th><th>메모</th><th>상태</th></tr></thead>
+          <tbody id="ledgerBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-rules" class="hidden">
+    <div class="panel">
+      <div class="panel-h">자동분류 규칙</div>
+      <div class="grid3">
+        <label>포함 문자<input id="ruleMatch" placeholder="쿠팡" /></label>
+        <label>카테고리<select id="ruleCat"></select></label>
+        <label>&nbsp;<button class="btn primary" id="btnAddRule" style="width:100%">추가</button></label>
+      </div>
+      <div class="rules" id="rulesList"></div>
+    </div>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

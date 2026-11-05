@@ -1,0 +1,28 @@
+{
+ "v": 1,
+ "file": "staging.enc",
+ "kdf": {
+  "name": "PBKDF2",
+  "hash": "SHA-256",
+  "iterations": 250000,
+  "salt": "xqVuJr0tTo9tWEV82ebt2A=="
+ },
+ "cipher": {
+  "name": "AES-GCM",
+  "length": 256,
+  "iv": "UnV3/9TM9tlic4HU",
+  "tag": "appended-16-bytes"
+ },
+ "cards": [
+  "shinhan",
+  "samsung",
+  "hana",
+  "nh",
+  "woori",
+  "ibk",
+  "kb",
+  "lotte",
+  "bc"
+ ],
+ "generated": "2026-11-05T15:18:05.111Z"
+}

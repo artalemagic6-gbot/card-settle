@@ -1,0 +1,22 @@
+{
+  "name": "card-settle-server",
+  "version": "1.1.0",
+  "description": "카드 정산 Node 서버 (SQLite)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "import-sample": "node scripts/import-sample.js",
+    "build:static": "node scripts/build-static.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "xlsx": "^0.18.5"
+  }
+}

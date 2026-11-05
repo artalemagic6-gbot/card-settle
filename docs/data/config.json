@@ -1,0 +1,209 @@
+{
+ "cats": [
+  "개인",
+  "데이트",
+  "부동산",
+  "크림",
+  "섬김비",
+  "연체",
+  "취미"
+ ],
+ "cards": [
+  {
+   "id": "shinhan",
+   "name": "신한",
+   "account": "352",
+   "payDay": 14,
+   "sort": 1
+  },
+  {
+   "id": "samsung",
+   "name": "삼성",
+   "account": "352",
+   "payDay": 13,
+   "sort": 2
+  },
+  {
+   "id": "hana",
+   "name": "하나",
+   "account": "352",
+   "payDay": 13,
+   "sort": 3
+  },
+  {
+   "id": "nh",
+   "name": "농협",
+   "account": "302",
+   "payDay": 14,
+   "sort": 10
+  },
+  {
+   "id": "woori",
+   "name": "우리",
+   "account": "other",
+   "payDay": 14,
+   "sort": 20
+  },
+  {
+   "id": "ibk",
+   "name": "IBK",
+   "account": "other",
+   "payDay": 14,
+   "sort": 21
+  },
+  {
+   "id": "hyundai",
+   "name": "현대",
+   "account": "other",
+   "payDay": 14,
+   "sort": 22
+  },
+  {
+   "id": "kb",
+   "name": "국민",
+   "account": "other",
+   "payDay": 14,
+   "sort": 23
+  },
+  {
+   "id": "lotte",
+   "name": "롯데",
+   "account": "other",
+   "payDay": 14,
+   "sort": 24
+  },
+  {
+   "id": "bc",
+   "name": "BC",
+   "account": "other",
+   "payDay": 14,
+   "sort": 25
+  }
+ ],
+ "accounts": [
+  {
+   "id": "352",
+   "name": "352계좌",
+   "balance": 558423,
+   "memo": ""
+  },
+  {
+   "id": "302",
+   "name": "302계좌",
+   "balance": 100000,
+   "memo": ""
+  },
+  {
+   "id": "other",
+   "name": "기타",
+   "balance": 0,
+   "memo": "우리·IBK·현대·국민·롯데·BC"
+  }
+ ],
+ "rules": [
+  {
+   "match": "구글",
+   "category": "개인"
+  },
+  {
+   "match": "위즈덤",
+   "category": "섬김비"
+  },
+  {
+   "match": "위즈돔",
+   "category": "섬김비"
+  },
+  {
+   "match": "밀키",
+   "category": "섬김비"
+  },
+  {
+   "match": "현대그린푸드",
+   "category": "섬김비"
+  },
+  {
+   "match": "배스킨라빈스 분당",
+   "category": "섬김비"
+  },
+  {
+   "match": "페이타랩",
+   "category": "데이트"
+  },
+  {
+   "match": "쿠팡",
+   "category": "데이트"
+  },
+  {
+   "match": "쏘카",
+   "category": "데이트"
+  },
+  {
+   "match": "올리브영",
+   "category": "데이트"
+  },
+  {
+   "match": "식자재",
+   "category": "데이트"
+  },
+  {
+   "match": "도시곳간",
+   "category": "데이트"
+  },
+  {
+   "match": "카카오T",
+   "category": "데이트"
+  },
+  {
+   "match": "택시",
+   "category": "데이트"
+  },
+  {
+   "match": "본죽",
+   "category": "데이트"
+  },
+  {
+   "match": "네이버페이",
+   "category": "데이트"
+  },
+  {
+   "match": "크림",
+   "category": "크림"
+  },
+  {
+   "match": "KREAM",
+   "category": "크림"
+  },
+  {
+   "match": "신의주",
+   "category": "데이트"
+  },
+  {
+   "match": "타이스트리트",
+   "category": "데이트"
+  },
+  {
+   "match": "GS25",
+   "category": "데이트"
+  },
+  {
+   "match": "지에스25",
+   "category": "데이트"
+  },
+  {
+   "match": "씨유",
+   "category": "데이트"
+  },
+  {
+   "match": "CU",
+   "category": "데이트"
+  },
+  {
+   "match": "스타벅스",
+   "category": "데이트"
+  },
+  {
+   "match": "다이소",
+   "category": "데이트"
+  }
+ ]
+}
