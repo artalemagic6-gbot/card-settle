@@ -9,9 +9,10 @@ async function decrypt(pass){const meta=await (await fetch("./data/staging/meta.
  const km=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);
  const key=await crypto.subtle.deriveKey({name:"PBKDF2",hash:meta.kdf.hash,iterations:meta.kdf.iterations,salt:b64(meta.kdf.salt)},km,{name:"AES-GCM",length:256},false,["decrypt"]);
  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(meta.cipher.iv)},key,b64(enc.trim()))))}
-async function unlock(pass){try{STG=await decrypt(pass);sessionStorage.setItem("cs_pass",pass);$("#gate").hidden=true;$("#main").hidden=false;await start();return true}
- catch(e){sessionStorage.removeItem("cs_pass");return false}}
-$("#gf").onsubmit=async e=>{e.preventDefault();$("#gerr").textContent="확인 중…";if(!await unlock($("#gp").value))$("#gerr").textContent="암호가 틀렸어요."};
+async function unlock(pass){pass=String(pass||"").trim();try{STG=await decrypt(pass);sessionStorage.setItem("cs_pass",pass);$("#gate").hidden=true;$("#main").hidden=false;await start();return true}
+ catch(e){console.warn("unlock",e);sessionStorage.removeItem("cs_pass");return false}}
+$("#gf").onsubmit=async e=>{e.preventDefault();$("#gerr").textContent="확인 중…";const v=$("#gp").value;if(!await unlock(v))$("#gerr").textContent="암호가 틀렸어요. 공백 없이 다시 입력해 주세요.";};
+document.getElementById("gshow")?.addEventListener("change",e=>{$("#gp").type=e.target.checked?"text":"password"});
 (async()=>{const p=sessionStorage.getItem("cs_pass");if(p&&await unlock(p))return;$("#gate").hidden=false})();
 // --- data ---
 function shortName(m){let s=String(m||"").trim();
