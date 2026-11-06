@@ -3,6 +3,7 @@ let CFG,S,D,STG=null,view="settle",dirty=false;
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const clone=o=>JSON.parse(JSON.stringify(o));const now=()=>new Date().toISOString();
 const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const SE=globalThis.SettleEdit;
 // --- gate ---
 async function decrypt(pass){
  const meta=await (await fetch("./data/staging/meta.json",{cache:"no-store"})).json();
@@ -77,20 +78,37 @@ function load(cid){const rows=STG?.cards?.[cid];if(!rows||!rows.length){alert("�
   category:t.category||classify(t.merchant),note:"",chk:false,virtual:false,loadedAt:now()});n++}
  touch();render();alert(`${n}건 불러옴 (이미 있거나 정산된 ${rows.length-n}건 제외) — 저장을 눌러야 반영돼요`)}
 const catOpts=v=>D.cats.map(c=>`<option ${c===v?"selected":""}>${esc(c)}</option>`).join("");
-function openTable(list){return `<table><tr><th>날짜</th><th>원본이름</th><th>내역</th><th>금액</th><th>분류</th><th>메모</th><th>정산</th><th></th></tr>`+
- list.map(t=>`<tr class="${t.chk?"done":""} ${t.virtual?"virtual":""}"><td>${esc(t.date).slice(0,16)}</td><td class="k">${esc(t.orig)}</td>
+function openTable(list){return `<table data-settle-table><tr><th>날짜</th><th>원본이름</th><th>내역</th><th>금액</th><th>분류</th><th>메모</th><th>정산</th><th></th></tr>`+
+ list.map(t=>`<tr data-row="${t.id}" class="${t.chk?"done":""} ${t.virtual?"virtual":""}"><td>${SE.rowDateHtml(t,esc)}</td><td class="k">${esc(t.orig)}</td>
  <td><input class="m" data-id="${t.id}" data-f="label" value="${esc(t.label)}"></td>
  <td class="n">${t.virtual?`<input data-id="${t.id}" data-f="amount" type="number" value="${t.amount}" style="width:90px">`:won(t.amount)}</td>
  <td><select data-id="${t.id}" data-f="category">${catOpts(t.category)}</select></td><td><input data-id="${t.id}" data-f="note" value="${esc(t.note)}"></td>
- <td><input type="checkbox" data-chk="${t.id}" ${t.chk?"checked":""}></td><td><button data-del="${t.id}">✕</button></td></tr>`).join("")+"</table>"}
+ <td><input type="checkbox" data-chk="${t.id}" ${t.chk?"checked":""}></td><td><button type="button" data-del="${t.id}">✕</button></td></tr>`).join("")+"</table>"}
+/** Update settle summary + mini cards without rebuilding the open-tx table (keeps focus for Tab). */
+function refreshSettleMeta(){
+ if(view!=="settle"||!D||!CFG)return;
+ const a=D.acct;const cs=cardsOf(a);const c=CFG.cards.find(x=>x.id===D.cur);if(!c)return;const r=calc(c.id);
+ const setTxt=(sel,txt)=>{const el=$(sel);if(el)el.textContent=txt};
+ const paint=(sel,bad)=>{const el=$(sel);if(el)el.className="v "+(bad?"warn":"good")};
+ setTxt("#sum-need",won(r.need));paint("#sum-need",!!r.need);
+ setTxt("#sum-os",won(r.os));
+ setTxt("#sum-diff",won(r.diff));paint("#sum-diff",!!r.diff);
+ setTxt("#sum-done",won(r.done));
+ document.querySelectorAll(".mini[data-card]").forEach(el=>{
+  const q=calc(el.dataset.card);const usedEl=el.querySelector("[data-mini-used]");
+  if(usedEl)usedEl.textContent=won(q.used);
+  el.classList.toggle("ok",!!(q.used&&q.diff===0));
+  el.classList.toggle("on",el.dataset.card===c.id);
+ });
+}
 function settleView(){const a=D.acct;const cs=cardsOf(a);if(!cs.find(c=>c.id===D.cur))D.cur=cs[0].id;const c=CFG.cards.find(x=>x.id===D.cur);const r=calc(c.id);
  const last=[...D.cycles].reverse().find(y=>y.card===c.id);
  return `<div class="tabs">${CFG.accounts.map(x=>`<button data-acct="${x.id}" class="${x.id===a?"on":""}">${x.id==="other"?"기타":x.id}</button>`).join("")}</div>
  <div class="card row"><span class="k">${esc(D.accounts[a].name)} 잔고${a==="352"?" (공유)":""}</span><input id="bal" type="number" value="${D.accounts[a].balance}"></div>
- <div class="minis">${cs.map(x=>{const q=calc(x.id);return `<div class="mini ${x.id===c.id?"on":""} ${q.used&&q.diff===0?"ok":""}" data-card="${x.id}"><b>${x.name}</b><br><span class="k">${won(q.used)}</span></div>`}).join("")}</div>
+ <div class="minis">${cs.map(x=>{const q=calc(x.id);return `<div class="mini ${x.id===c.id?"on":""} ${q.used&&q.diff===0?"ok":""}" data-card="${x.id}"><b>${x.name}</b><br><span class="k" data-mini-used>${won(q.used)}</span></div>`}).join("")}</div>
  <div class="card"><h2 style="margin:0 0 6px">${c.name}카드 <span class="k" style="font-size:13px">결제일 ${c.payDay}일${last?` · 지난 회차 ${won(last.used)} (${last.closedAt.slice(0,10)})`:""}</span></h2>
  <div class="row"><span class="k">이용금액</span><input id="used" type="number" value="${r.used||""}" placeholder="청구 이용금액"><span class="k">값을 바꿔 저장하면 이전 회차는 과거로 보관돼요</span></div>
- <div class="row"><span class="k">입금필요</span><span class="v ${r.need?"warn":"good"}">${won(r.need)}</span><span class="k">· 열린 내역합 ${won(r.os)}</span><span class="k">· 차액</span><span class="v ${r.diff?"warn":"good"}">${won(r.diff)}</span><span class="k">· 체크 ${won(r.done)}</span></div>
+ <div class="row"><span class="k">입금필요</span><span id="sum-need" class="v ${r.need?"warn":"good"}">${won(r.need)}</span><span class="k">· 열린 내역합 </span><span id="sum-os" class="k">${won(r.os)}</span><span class="k">· 차액</span><span id="sum-diff" class="v ${r.diff?"warn":"good"}">${won(r.diff)}</span><span class="k">· 체크 </span><span id="sum-done" class="k">${won(r.done)}</span></div>
  <button class="big primary" id="load">카드내역 불러오기</button>
  <div class="row"><button id="addv">+ 수기 입력(차액만큼 개인차액)</button><button id="chkall">전체 체크</button></div>
  ${openTable(D.txs.filter(t=>t.card===c.id))}</div>`}
@@ -107,13 +125,14 @@ function rulesView(){return `<div class="card"><h3>카테고리</h3><div class="
  <table>${D.rules.map((r,i)=>`<tr><td>${esc(r.match)}</td><td>${esc(r.category)}</td><td><button data-rdel="${i}">✕</button></td></tr>`).join("")}</table></div>`}
 function render(){$("#app").innerHTML={settle:settleView,ledger:ledgerView,history:historyView,rules:rulesView}[view]();const on=(s,f,e="onclick")=>{const el=$(s);if(el)el[e]=f};const all=(s,f)=>document.querySelectorAll(s).forEach(f);
  const T=id=>D.txs.find(x=>x.id==id);
- all("[data-f]",el=>el.onchange=()=>{const t=T(el.dataset.id);t[el.dataset.f]=el.dataset.f==="amount"?Number(el.value):el.value;touch();render()});
- all("[data-chk]",el=>el.onchange=()=>{T(el.dataset.chk).chk=el.checked;touch();render()});
+ // Inline field edits: update model (+ summary if needed) without destroying the table DOM so Tab/Shift+Tab stay natural.
+ all("[data-f]",el=>el.onchange=()=>{const t=T(el.dataset.id);if(!t)return;const f=el.dataset.f;SE.applyField(t,f,el.value);touch();if(SE.fieldAffectsSummary(f))refreshSettleMeta()});
+ all("[data-chk]",el=>el.onchange=()=>{const t=T(el.dataset.chk);if(!t)return;t.chk=el.checked;el.closest("tr")?.classList.toggle("done",el.checked);touch();refreshSettleMeta()});
  all("[data-del]",b=>b.onclick=()=>{if(confirm("이 열린 내역 삭제?")){D.txs=D.txs.filter(t=>t.id!=b.dataset.del);touch();render()}});
  all("[data-acct]",b=>b.onclick=()=>{D.acct=b.dataset.acct;render()});
  all("[data-card]",b=>b.onclick=()=>{D.cur=b.dataset.card;render()});
- on("#bal",e=>{D.accounts[D.acct].balance=Number(e.target.value)||0;touch();render()},"onchange");
- on("#used",e=>{D.cards[D.cur].used=Number(e.target.value)||0;touch();render()},"onchange");
+ on("#bal",e=>{D.accounts[D.acct].balance=Number(e.target.value)||0;touch();refreshSettleMeta()},"onchange");
+ on("#used",e=>{D.cards[D.cur].used=Number(e.target.value)||0;touch();refreshSettleMeta()},"onchange");
  on("#load",()=>load(D.cur));
  on("#chkall",()=>{D.txs.filter(t=>t.card===D.cur).forEach(t=>t.chk=true);touch();render()});
  on("#addv",()=>{const d=calc(D.cur).diff;D.txs.push({id:D.nextId++,card:D.cur,date:new Date().toISOString().slice(0,10),orig:"수기입력",label:"개인차액",amount:d,category:"개인",note:"",chk:false,virtual:true,loadedAt:now()});touch();render()});

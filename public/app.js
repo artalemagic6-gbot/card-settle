@@ -190,9 +190,17 @@ function renderTable() {
     .map(
       (t) => `<tr style="opacity:${t.settled ? 0.45 : 1}">
       <td><input type="checkbox" class="pick" data-id="${t.id}" /></td>
-      <td>${esc(t.date)}${t.virtual ? ' <span class="muted">가상</span>' : ""}</td>
+      <td>${
+        t.virtual
+          ? `<input type="date" class="cell-edit date" data-id="${t.id}" value="${esc(String(t.date || "").slice(0, 10))}" /> <span class="muted">가상</span>`
+          : `${esc(t.date)}`
+      }</td>
       <td><input class="cell-edit merchant" data-id="${t.id}" value="${esc(t.merchant)}" /></td>
-      <td class="r">${won(t.amount)}</td>
+      <td class="r">${
+        t.virtual
+          ? `<input type="number" class="cell-edit amount" data-id="${t.id}" value="${t.amount}" style="width:90px;text-align:right" />`
+          : won(t.amount)
+      }</td>
       <td><select class="cat" data-id="${t.id}" style="background:${COLOR[t.category] || "#888"}33">${
         state.categories
           .map((c) => `<option value="${c}" ${c === t.category ? "selected" : ""}>${c}</option>`)
@@ -204,14 +212,16 @@ function renderTable() {
     )
     .join("");
 
-  tb.querySelectorAll("select.cat").forEach((s) => {
-    s.onchange = async () => {
-      await api(`/api/txs/${s.dataset.id}`, {
+  // Category / cell edits update in place (no table rebuild) so Tab keeps native next-field focus.
+  tb.querySelectorAll("select.cat").forEach((sel) => {
+    sel.onchange = async () => {
+      await api(`/api/txs/${sel.dataset.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ category: s.value }),
+        body: JSON.stringify({ category: sel.value }),
       });
-      await loadState();
-      await loadTxs();
+      const row = txs.find((x) => String(x.id) === String(sel.dataset.id));
+      if (row) row.category = sel.value;
+      sel.style.background = (COLOR[sel.value] || "#888") + "33";
     };
   });
 
@@ -219,12 +229,21 @@ function renderTable() {
     tb.querySelectorAll(sel).forEach((inp) => {
       const save = async () => {
         const body = {};
-        body[field] = inp.value;
+        body[field] = field === "amount" ? Number(inp.value) : inp.value;
         await api(`/api/txs/${inp.dataset.id}`, { method: "PATCH", body: JSON.stringify(body) });
         const row = txs.find((x) => String(x.id) === String(inp.dataset.id));
         if (row) {
           if (field === "merchant") row.merchant = inp.value;
           if (field === "note") row.note = inp.value;
+          if (field === "date") row.date = inp.value;
+          if (field === "amount") {
+            row.amount = Number(inp.value);
+            const c = focusCard();
+            if (c) {
+              c.openSum = txs.filter((t) => !t.settled).reduce((a, t) => a + Number(t.amount || 0), 0);
+              renderSummary();
+            }
+          }
         }
       };
       inp.onblur = save;
@@ -238,6 +257,8 @@ function renderTable() {
   };
   bindBlur("input.merchant", "merchant");
   bindBlur("input.memo", "note");
+  bindBlur("input.date", "date");
+  bindBlur("input.amount", "amount");
 }
 
 async function renderLedger() {
