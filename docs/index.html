@@ -1,13 +1,17 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>카드 정산</title><link rel="stylesheet" href="./style.css?v=20261107b"></head><body>
+<title>카드 정산</title><link rel="stylesheet" href="./style.css?v=20261107c"></head><body>
 <div id="gate" class="gate"><div class="card"><h1>카드 정산</h1><p class="k">입장 암호를 입력하세요</p>
 <form id="gf"><input id="gp" autocomplete="current-password" type="password" autocomplete="current-password" autofocus><button class="primary">입장</button><label class="showpw"><input type="checkbox" id="gshow"/> 암호 보기</label></form><p id="gerr" class="warn"></p></div></div>
 <div id="main" hidden><header><h1>카드 정산</h1><nav><button id="save" class="primary">저장</button><span id="dirty" class="k"></span>
 <button data-view="settle" class="on">정산</button><button data-view="ledger">가계부</button><button data-view="history">과거</button><button data-view="rules">분류·규칙</button></nav></header>
 <div class="workspace"><aside id="category-sidebar" aria-label="전체 카드 분류별 정산 예정"></aside><main id="app"></main></div>
-<dialog id="account-dialog" aria-labelledby="account-dialog-title"><form id="account-form"><h2 id="account-dialog-title">계좌 설정</h2><label for="buffer">안전여유금</label><input id="buffer" type="number" required><p class="k">적용 후 상단 저장을 눌러야 반영돼요.</p><div class="dialog-actions"><button type="button" id="account-cancel" class="subtle">취소</button><button type="submit" class="primary">적용</button></div></form></dialog></div>
-<script src="./settle-edit.js?v=20261107b"></script>
-<script src="./settle-math.js?v=20261107b"></script>
-<script src="./category-ui.js?v=20261107b"></script>
-<script src="./app.js?v=20261107b"></script>
+<dialog id="account-dialog" aria-labelledby="account-dialog-title"><form id="account-form"><h2 id="account-dialog-title">계좌 설정</h2><label for="buffer">안전여유금</label><input id="buffer" class="money-input" type="text" inputmode="decimal" required><p class="k">적용 후 상단 저장을 눌러야 반영돼요.</p><div class="dialog-actions"><button type="button" id="account-cancel" class="subtle">취소</button><button type="submit" class="primary">적용</button></div></form></dialog>
+<dialog id="cutoff-dialog" aria-labelledby="cutoff-title"><form id="cutoff-form"><h2 id="cutoff-title">최근 정리일 설정</h2><p class="k">이 시각 이후의 내역을 다음에 준비해요. 일반 저장이나 불러오기로 자동 변경되지 않아요.</p><label for="cutoff-value">정리한 마지막 일시 (한국시간)</label><input id="cutoff-value" type="datetime-local" required><p class="k">적용 후 상단 저장을 눌러주세요.</p><div class="dialog-actions"><button type="button" id="cutoff-cancel" class="subtle">취소</button><button type="submit" class="primary">적용</button></div></form></dialog>
+<dialog id="card-dialog" aria-labelledby="card-dialog-title"><form id="card-form"><h2 id="card-dialog-title">카드 설정</h2><p class="k">카드사 안에서 구분할 짧은 표시 이름이에요. 전체 카드번호는 저장하지 않아요.</p><div id="card-aliases"></div><label for="new-card-ref">새 카드 구분 (카드명 또는 끝 네 자리)</label><input id="new-card-ref" autocomplete="off" placeholder="예: 생활카드 1234"><label for="new-card-label">표시 이름</label><input id="new-card-label" autocomplete="off" placeholder="예: 생활카드"><p class="k">적용 후 상단 저장을 눌러주세요. 과거 가계부의 표시 이름은 바뀌지 않아요.</p><div class="dialog-actions"><button type="button" id="card-cancel" class="subtle">취소</button><button type="submit" class="primary">적용</button></div></form></dialog></div>
+<script src="./settle-edit.js?v=20261107c"></script>
+<script src="./settle-math.js?v=20261107c"></script>
+<script src="./category-ui.js?v=20261107c"></script>
+<script src="./settle-tools.js?v=20261107c"></script>
+<script src="./settle-workflow.js?v=20261107c"></script>
+<script src="./app.js?v=20261107c"></script>
 </body></html>

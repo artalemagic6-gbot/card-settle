@@ -1,42 +1,27 @@
 #!/usr/bin/env node
-/** Usage: node scripts/export-staging-to-docs.js [file.xlsx]  (default sample-all-cards.xlsx)
- *  Parses card excel → docs/data/staging/staging.enc + meta.json (encrypted) + config.json */
-const fs = require("fs"), path = require("path");
-const { parseWorkbook } = require("../lib/parsers");
-const { classify } = require("../lib/classify");
-const { CATS, CARDS, ACCOUNTS, DEFAULT_RULES } = require("../lib/db");
-const root = path.join(__dirname, "..");
-const xlsx = process.argv[2] || (fs.existsSync(path.join(root,"private","sample-all-cards.xlsx"))?path.join(root,"private","sample-all-cards.xlsx"):path.join(root,"sample-all-cards.xlsx"));
-const out = path.join(root, "docs", "data", "staging");
-fs.mkdirSync(out, { recursive: true });
-for (const f of fs.readdirSync(out)) fs.unlinkSync(path.join(out, f));
-const by = {};
-for (const r of parseWorkbook(xlsx)) {
-  for (const t of r.rows || []) {
-    if (t.cancelled) continue;
-    (by[r.card] ||= []).push({
-      date: t.date || "", merchant: t.merchant || "", amount: Number(t.amount) || 0,
-      category: t.category || classify(t.merchant, DEFAULT_RULES), note: t.note || "",
-      approval_no: t.approval_no || t.approvalNo || null,
-    });
-  }
-}
-const crypto = require("crypto");
-const pass = process.env.CARD_SETTLE_PASS || fs.readFileSync(path.join(root, ".card-settle-passphrase"), "utf8").trim();
-const index = { generated: new Date().toISOString(), source: path.basename(xlsx), cards: {} };
-for (const [card, rows] of Object.entries(by)) {
-  index.cards[card] = { count: rows.length, sum: rows.reduce((s, x) => s + x.amount, 0) };
-}
-// Encrypt {index, cards:{card:rows}} with PBKDF2-SHA256 + AES-256-GCM (Web Crypto compatible)
-const ITER = 100000, salt = crypto.randomBytes(16), iv = crypto.randomBytes(12);
-const key = crypto.pbkdf2Sync(pass, salt, ITER, 32, "sha256");
-const ci = crypto.createCipheriv("aes-256-gcm", key, iv);
-const ct = Buffer.concat([ci.update(JSON.stringify({ index, cards: by }), "utf8"), ci.final(), ci.getAuthTag()]);
-fs.writeFileSync(path.join(out, "staging.enc"), ct.toString("base64"));
-fs.writeFileSync(path.join(out, "meta.json"), JSON.stringify({ v: 1, file: "staging.enc",
-  kdf: { name: "PBKDF2", hash: "SHA-256", iterations: ITER, salt: salt.toString("base64") },
-  cipher: { name: "AES-GCM", length: 256, iv: iv.toString("base64"), tag: "appended-16-bytes" },
-  cards: Object.keys(by), generated: index.generated }, null, 1));
-fs.writeFileSync(path.join(root, "docs", "data", "config.json"),
-  JSON.stringify({ cats: CATS, cards: CARDS, accounts: ACCOUNTS, rules: DEFAULT_RULES }, null, 1));
-console.log(index.cards);
+/** XLSX or --json private-payload.json [--out private-test-directory].
+ * Parse/validate/encrypt BEFORE publishing metadata. Never erase old staging or config. */
+const fs=require("fs"),path=require("path"),crypto=require("crypto");
+const U=require("../docs/settle-tools.js"),{classify}=require("../lib/classify"),{CATS,CARDS,ACCOUNTS,DEFAULT_RULES}=require("../lib/db");
+const root=path.join(__dirname,".."),args=process.argv.slice(2);let jsonInput=null,input=null,out=path.join(root,"docs/data/staging");
+for(let i=0;i<args.length;i++){if(args[i]==="--json")jsonInput=args[++i];else if(args[i]==="--out")out=path.resolve(args[++i]);else if(args[i].startsWith("--"))throw new Error("Unknown export option");else if(input)throw new Error("Only one input is supported");else input=args[i]}
+if(jsonInput&&input)throw new Error("Choose XLSX or JSON, not both");
+input=jsonInput||input||(fs.existsSync(path.join(root,"private/sample-all-cards.xlsx"))?path.join(root,"private/sample-all-cards.xlsx"):path.join(root,"sample-all-cards.xlsx"));
+let incoming;
+if(jsonInput)incoming=JSON.parse(fs.readFileSync(input,"utf8"));else{const {parseWorkbook}=require("../lib/parsers");const by={};for(const group of parseWorkbook(input))for(const t of group.rows||[]){if(t.cancelled)continue;(by[group.card]||=[]).push({...t,approval_no:t.approval_no||t.approvalNo||null})}incoming={cards:by}}
+if(!incoming.cards||typeof incoming.cards!=="object"||Array.isArray(incoming.cards))throw new Error("Missing cards payload");
+const allowed=new Set(CARDS.map(c=>c.id)),cards={},issuerUsed={};
+for(const cid of Object.keys(incoming.cards)){if(!allowed.has(cid))throw new Error("Unknown issuer in payload");const p=U.importPayload(incoming,cid);if(p.invalidUsed)throw new Error("Invalid issuer used amount");if(!Array.isArray(incoming.cards[cid])&&!Array.isArray(incoming.cards[cid]?.rows))throw new Error("Invalid transaction array");cards[cid]=p.rows.map(t=>{const amount=U.parseMoney(t.amount);if(amount===null||t.amount===null||t.amount===undefined||String(t.amount).trim()==="")throw new Error("Invalid transaction amount");return {date:String(t.date||""),merchant:String(t.merchant||t.orig||""),amount,category:t.category||classify(t.merchant||t.orig,DEFAULT_RULES),note:String(t.note||""),approval_no:t.approval_no||t.approvalNo||null,cardRef:U.safeCard(t.cardRef),cardLabel:U.safeCard(t.cardLabel),datePrecision:t.datePrecision||null,needsReview:!!t.needsReview,classificationReason:String(t.classificationReason||"")}});if(p.hasUsed)issuerUsed[cid]=p.used}
+for(const [cid,v]of Object.entries(incoming.issuerUsed||{})){if(!allowed.has(cid)||U.parseMoney(v)===null||v===null||String(v).trim()==="")throw new Error("Invalid issuer used amount");issuerUsed[cid]=U.parseMoney(v)}
+const pass=process.env.CARD_SETTLE_PASS||fs.readFileSync(path.join(root,".card-settle-passphrase"),"utf8").trim();if(!pass)throw new Error("Missing encryption passphrase");
+let previous={};const oldMeta=path.join(out,"meta.json");if(fs.existsSync(oldMeta)){const meta=JSON.parse(fs.readFileSync(oldMeta,"utf8"));if(path.basename(meta.file)!==meta.file)throw new Error("Invalid staging filename");const enc=Buffer.from(fs.readFileSync(path.join(out,meta.file),"utf8").trim(),"base64"),key=crypto.pbkdf2Sync(pass,Buffer.from(meta.kdf.salt,"base64"),meta.kdf.iterations,32,"sha256"),de=crypto.createDecipheriv("aes-256-gcm",key,Buffer.from(meta.cipher.iv,"base64"));de.setAuthTag(enc.subarray(-16));previous=JSON.parse(Buffer.concat([de.update(enc.subarray(0,-16)),de.final()]).toString("utf8"))}
+const mergedCards={...(previous.cards||{}),...cards},mergedUsed={...(previous.issuerUsed||{})};for(const cid of Object.keys(cards))delete mergedUsed[cid];Object.assign(mergedUsed,issuerUsed);
+const index={generated:new Date().toISOString(),cards:{}};for(const [cid,raw]of Object.entries(mergedCards)){const rows=Array.isArray(raw)?raw:raw.rows||[];index.cards[cid]={count:rows.length,sum:rows.reduce((s,t)=>s+Number(t.amount),0)}}
+const payload={index,cards:mergedCards,...(Object.keys(mergedUsed).length?{issuerUsed:mergedUsed}:{})};
+const ITER=100000,salt=crypto.randomBytes(16),iv=crypto.randomBytes(12),key=crypto.pbkdf2Sync(pass,salt,ITER,32,"sha256"),ci=crypto.createCipheriv("aes-256-gcm",key,iv);
+const ct=Buffer.concat([ci.update(JSON.stringify(payload),"utf8"),ci.final(),ci.getAuthTag()]),file="staging-"+crypto.createHash("sha256").update(ct).digest("hex").slice(0,16)+".enc";
+const meta={v:2,file,kdf:{name:"PBKDF2",hash:"SHA-256",iterations:ITER,salt:salt.toString("base64")},cipher:{name:"AES-GCM",length:256,iv:iv.toString("base64"),tag:"appended-16-bytes"},cards:Object.keys(mergedCards),generated:index.generated};
+fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,file),ct.toString("base64"));const tmp=path.join(out,".meta-"+process.pid+".tmp");fs.writeFileSync(tmp,JSON.stringify(meta,null,1));fs.renameSync(tmp,oldMeta);
+// Only a brand-new default deployment needs configuration; never overwrite an existing one.
+const config=path.join(root,"docs/data/config.json");if(out===path.join(root,"docs/data/staging")&&!fs.existsSync(config))fs.writeFileSync(config,JSON.stringify({cats:CATS,cards:CARDS,accounts:ACCOUNTS,rules:DEFAULT_RULES},null,1));
+console.log("Encrypted staging prepared for "+Object.keys(cards).length+" issuer(s); unrelated issuers and existing configuration preserved.");
