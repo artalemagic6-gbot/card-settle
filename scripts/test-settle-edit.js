@@ -34,6 +34,8 @@ assert.equal(SE.applyField(tx, "date", "2026-02-02"), true);
 assert.equal(tx.date, "2026-02-02");
 assert.equal(SE.applyField(tx, "amount", "326"), true);
 assert.equal(tx.amount, 326);
+assert.equal(tx.sourceAmount, 10);
+SE.applyField(tx, "amount", "327");assert.equal(tx.sourceAmount,10);
 assert.equal(SE.applyField(tx, "label", "개인차액"), true);
 assert.equal(SE.fieldAffectsSummary("amount"), true);
 assert.equal(SE.fieldAffectsSummary("label"), false);
@@ -41,11 +43,11 @@ assert.equal(SE.fieldAffectsSummary("date"), false);
 
 // --- tab order contract ---
 assert.deepEqual(SE.fieldTabOrder(true), ["date", "physical", "label", "amount", "category", "note", "chk", "del"]);
-assert.deepEqual(SE.fieldTabOrder(false), ["physical", "label", "category", "note", "chk", "del"]);
+assert.deepEqual(SE.fieldTabOrder(false), ["physical", "label", "amount", "category", "note", "chk", "del"]);
 assert.equal(SE.nextField(SE.fieldTabOrder(true), "date", false), "physical");
 assert.equal(SE.nextField(SE.fieldTabOrder(true), "label", false), "amount");
 assert.equal(SE.nextField(SE.fieldTabOrder(true), "amount", true), "label");
-assert.equal(SE.nextField(SE.fieldTabOrder(false), "label", false), "category");
+assert.equal(SE.nextField(SE.fieldTabOrder(false), "label", false), "amount");
 assert.equal(SE.nextField(SE.fieldTabOrder(false), "note", false), "chk");
 
 // --- app wiring: inline edits must not call render() ---

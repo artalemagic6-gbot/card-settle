@@ -51,7 +51,7 @@ function migrate(o){const s=blank();Object.assign(s,{acct:o.acct||s.acct,cur:o.c
  for(const c in o.cards||{})s.cards[c]={used:o.cards[c].used||0,cycleStart:now()};
  for(const t of o.txs||[]){const x={...t,orig:t.orig||t.merchant,label:t.label||shortName(t.merchant)};if(t.settled)s.ledger.push(rec(x,s));else s.txs.push({...x,chk:false})}return s}
 function rec(t,s){const c=CFG.cards.find(x=>x.id===t.card)||{};return{lid:"L"+(s.ledger.length+1)+"-"+Date.now().toString(36)+"-"+t.id,date:t.date,orig:t.orig,label:t.label,amount:t.amount,
- category:t.category,note:t.note||"",card:t.card,cardName:c.name,cardRef:U.safeCard(t.cardRef),physicalRef:U.cardRef(t),cardLabel:U.cardLabel(t,s),account:c.account,approval_no:t.approval_no||null,virtual:!!t.virtual,
+ sourceAmount:U.parseMoney(t.sourceAmount??t.amount),amountEstimated:!!t.amountEstimated,category:t.category,note:t.note||"",card:t.card,cardName:c.name,cardRef:U.safeCard(t.cardRef),physicalRef:U.cardRef(t),cardLabel:U.cardLabel(t,s),account:c.account,approval_no:t.approval_no||null,virtual:!!t.virtual,
  cycleStart:s.cards[t.card]?.cycleStart||null,cycleUsed:s.cards[t.card]?.used||0,loadedAt:t.loadedAt||null,settledAt:now()}}
 async function start(){CFG=await (await fetch("./data/config.json",{cache:"no-store"})).json();
  const raw=localStorage.getItem(KEY);if(raw)S=JSON.parse(raw);else{const o=localStorage.getItem(OLD);S=o?migrate(JSON.parse(o)):blank()}
@@ -82,7 +82,7 @@ function load(cid){const payload=U.importPayload(STG,cid),rows=payload.rows;if(p
  if(rows.some(t=>!t||t.amount===null||t.amount===undefined||String(t.amount).trim()===""||U.parseMoney(t.amount)===null)){alert("준비된 내역의 금액을 확인해주세요.");return}
  const incoming=U.newRows(rows,[...D.txs,...D.ledger].filter(t=>t.card===cid));
  if(payload.hasUsed)D.cards[cid].used=payload.used;
- for(const t of incoming){const ref=U.safeCard(t.cardRef);D.txs.push({id:D.nextId++,card:cid,date:t.date,orig:t.merchant,label:t.label||shortName(t.merchant),amount:U.parseMoney(t.amount),approval_no:t.approval_no||null,
+ for(const t of incoming){const ref=U.safeCard(t.cardRef);D.txs.push({id:D.nextId++,card:cid,date:t.date,orig:t.merchant,label:t.label||shortName(t.merchant),amount:U.parseMoney(t.amount),sourceAmount:U.parseMoney(t.amount),amountEstimated:!!t.amountEstimated,approval_no:t.approval_no||null,
   cardRef:ref,sourceCardRef:ref,cardLabel:U.safeCard(t.cardLabel),datePrecision:t.datePrecision||null,needsReview:!!t.needsReview,classificationReason:t.classificationReason||"",
   category:classify(t.merchant,cid,ref,t.category),note:t.note||"",chk:false,virtual:false,loadedAt:now()})}
  touch();render();alert(`${incoming.length}건 불러옴 (이미 있거나 정산된 ${rows.length-incoming.length}건 제외)${payload.hasUsed?" · 이용금액 "+won(payload.used)+" 반영":" · 현재 이용금액은 유지"} — 저장을 눌러야 반영돼요`)}
@@ -92,7 +92,7 @@ function physicalOptions(t){const current=U.cardRef(t);return `<option value="">
 function openTable(list){const rows=U.sortRows(list,settleSort,D.cats,t=>U.cardLabel(t,D));return `<table data-settle-table><thead><tr>${[["date","날짜"],["physical","카드"],["orig","원본이름"],["label","내역"],["amount","금액"],["category","분류"],["note","메모"]].map(([key,label])=>sortHeader(key,label)).join("")}<th>정산</th><th></th></tr></thead><tbody>`+
  rows.map(t=>`<tr data-row="${t.id}" data-color-category="${esc(t.category||"미분류")}" class="${t.chk?"done":""} ${t.virtual?"virtual":""}"><td>${SE.rowDateHtml(t,esc)}</td><td><select class="physical-card" data-physical="${t.id}" aria-label="개별 카드 표시" title="${esc(U.cardLabel(t,D))}">${physicalOptions(t)}</select></td><td class="k">${esc(t.orig)}${t.needsReview?'<span class="review-badge" title="날짜 또는 분류를 확인해주세요">확인</span>':""}</td>
  <td><input class="m" data-id="${t.id}" data-f="label" value="${esc(t.label)}"></td>
- <td class="n">${t.virtual?`<input data-id="${t.id}" data-f="amount" class="money-input" type="text" inputmode="decimal" value="${U.money(t.amount)}" style="width:100px">`:won(t.amount)}</td>
+ <td class="n"><input data-id="${t.id}" data-f="amount" class="money-input" type="text" inputmode="decimal" value="${U.money(t.amount)}" title="${t.amountEstimated?"환율 환산 추정액 · 실제 원화 금액으로 수정할 수 있어요":"원화 금액"}" style="width:100px">${t.amountEstimated?`<small class="review-badge estimate-note" data-estimate="${t.id}">환산 추정</small>`:""}</td>
  <td><button type="button" class="category-picker" data-cat-picker="${t.id}">${esc(t.category)}</button></td><td><input data-id="${t.id}" data-f="note" value="${esc(t.note)}"></td>
  <td><input type="checkbox" data-chk="${t.id}" ${t.chk?"checked":""}></td><td><button type="button" data-del="${t.id}">✕</button></td></tr>`).join("")+"</tbody></table>"}
 /** Update settle summary + mini cards without rebuilding the open-tx table (keeps focus for Tab). */
@@ -151,7 +151,7 @@ function render(){categoryPickers.forEach(p=>p.destroy());categoryPickers=[];$("
  all("[data-color-category]",el=>CU.paintTransactionRow(el,el.dataset.colorCategory,D.catColors));
  all("[data-cat-picker]",el=>{const t=T(el.dataset.catPicker);if(!t)return;categoryPickers.push(CU.mountCategoryPicker(el,{getOptions:()=>CU.orderedCategories(D.cats,D.txs),getValue:()=>t.category,getColors:()=>D.catColors,onCommit:category=>{if(t.category!==category&&!t.virtual)t.categoryEdited=true;t.category=category;const row=el.closest("tr");row.dataset.colorCategory=category;CU.paintTransactionRow(row,category,D.catColors);touch();refreshCategorySidebar()}}))});
  // Inline field edits: update model (+ summary if needed) without destroying the table DOM so Tab/Shift+Tab stay natural.
- all("[data-f]",el=>el.onchange=()=>{const t=T(el.dataset.id);if(!t)return;const f=el.dataset.f;const value=f==="amount"?WF.moneyValue(el,t.amount):el.value;if(value===null)return;SE.applyField(t,f,value);touch();if(SE.fieldAffectsSummary(f))refreshSettleMeta()});
+ all("[data-f]",el=>el.onchange=()=>{const t=T(el.dataset.id);if(!t)return;const f=el.dataset.f;const value=f==="amount"?WF.moneyValue(el,t.amount):el.value;if(value===null)return;SE.applyField(t,f,value);if(f==="amount"){t.amountEstimated=false;$('[data-estimate="'+t.id+'"]')?.remove();el.title="수정한 원화 금액"}touch();if(SE.fieldAffectsSummary(f))refreshSettleMeta()});
  all("[data-chk]",el=>el.onchange=()=>{const t=T(el.dataset.chk);if(!t)return;t.chk=el.checked;el.closest("tr")?.classList.toggle("done",el.checked);touch();refreshSettleMeta()});
  all("[data-del]",b=>b.onclick=()=>{if(confirm("이 열린 내역 삭제?")){D.txs=D.txs.filter(t=>t.id!=b.dataset.del);touch();render()}});
  all("[data-acct]",b=>b.onclick=()=>{D.acct=b.dataset.acct;render()});
@@ -167,7 +167,7 @@ function render(){categoryPickers.forEach(p=>p.destroy());categoryPickers=[];$("
  on("#addv",()=>{const d=calc(D.cur).diff;D.txs.push({id:D.nextId++,card:D.cur,date:new Date().toISOString().slice(0,10),orig:"수기입력",label:"개인차액",amount:d,category:"개인",note:"",chk:false,virtual:true,loadedAt:now()});touch();render()});
  const dl=(txt,name,type)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click()};
  on("#exp",()=>dl(JSON.stringify(S,null,1),"card-settle.json","application/json"));
- on("#csv",()=>{const f=["date","cardName","cardLabel","cardRef","orig","label","amount","category","note","approval_no","cycleStart","cycleUsed","settledAt"];
+ on("#csv",()=>{const f=["date","cardName","cardLabel","cardRef","orig","label","amount","sourceAmount","amountEstimated","category","note","approval_no","cycleStart","cycleUsed","settledAt"];
   dl("\ufeff"+[f.join(","),...S.ledger.map(r=>f.map(x=>`"${String(r[x]??"").replace(/"/g,'""')}"`).join(","))].join("\n"),"ledger.csv","text/csv")});
  on("#cadd",()=>{const n=$("#cn").value.trim();if(n&&!D.cats.includes(n)){D.cats.push(n);D.catColors=CU.normalizeColors(D.catColors,D.cats);touch();render()}});
  all("[data-cat]",el=>el.onchange=()=>{const i=+el.dataset.cat,o=D.cats[i],n=el.value.trim();if(!n||(n!==o&&(D.cats.some((c,j)=>j!==i&&c===n)||D.txs.some(t=>CU.categoryName(t.category)===n)||D.rules.some(r=>CU.categoryName(r.category)===n)||D.learnedRules.some(r=>r.category===n)||D.learningConflicts.some(r=>r.categories.includes(n))))){el.value=o;alert("비어 있거나 중복된 분류 이름은 사용할 수 없어요.");return}if(n===o)return;D.cats[i]=n;

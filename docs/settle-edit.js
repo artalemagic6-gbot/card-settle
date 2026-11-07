@@ -17,12 +17,15 @@
   function fieldTabOrder(isVirtual) {
     return isVirtual
       ? ["date", "physical", "label", "amount", "category", "note", "chk", "del"]
-      : ["physical", "label", "category", "note", "chk", "del"];
+      : ["physical", "label", "amount", "category", "note", "chk", "del"];
   }
 
   function applyField(tx, field, raw) {
     if (!tx || !INLINE_FIELDS.includes(field)) return false;
-    if (field === "amount") tx.amount = Number(raw);
+    if (field === "amount") {
+      if (!tx.virtual && tx.sourceAmount == null) tx.sourceAmount = Number(tx.amount);
+      tx.amount = Number(raw);
+    }
     else tx[field] = raw;
     return true;
   }

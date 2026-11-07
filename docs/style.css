@@ -14,3 +14,5 @@ dialog{background:var(--panel);color:var(--text);border:1px solid #435671;border
 @media(max-width:760px){#main>header{position:sticky;top:0;z-index:40}.account-choice{align-items:flex-start}.cutoff{font-size:11px;flex-wrap:wrap}.account-card{top:var(--header-height);border-radius:0 0 10px 10px;margin-inline:-5px;padding:10px 12px}.account-card>.row{margin:4px 0 7px;gap:7px}.account-card .formula-hint{margin-top:7px}.account-card .money-input{max-width:115px}.physical-alias{grid-template-columns:1fr}}
 
 dialog .money-input{width:100%}
+
+.estimate-note{display:block;width:fit-content;margin:3px 0 0 auto}
