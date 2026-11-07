@@ -47,5 +47,18 @@ const value=(selector,v,type="change")=>{const n=el(selector);n.value=v;n.dispat
  value('[data-cat="1"]',"규칙고아");assert.equal(el('[data-cat="1"]').value,"내 분류");assert.equal(run('D.rules.at(-1).category'),"규칙고아");
  // Render/dispose removes any portal and opens only one menu without stale handlers.
  run('view="settle";D.cur="samsung";render()');const last=el("[data-cat-picker]");press(last,"ArrowDown",{altKey:true});run("render()");assert.equal(el(".category-menu"),null);assert.equal(d.querySelectorAll("[role=listbox]").length,0);
- console.log("test-category-ui: ok (colors/order, all-card sums, shortcuts, stable inputs, draft settings, save/reload, rename safety)");dom.window.close();
+ // Sidebar issuer filter is view-only: no storage writes, dirty flag, or table re-render.
+ run('view="settle";D.acct="352";D.cur="shinhan";render();dirty=false');const fSaves=saves,fTable=el("[data-settle-table]"),fDraft=JSON.stringify(json("D")),fMeta=el("#category-sidebar").ownerDocument.querySelector(".account-card")?.textContent;
+ const sum=(card)=>json("D.txs").filter(t=>!card||t.card===card).reduce((n,t)=>n+t.amount,0),wonT=n=>n.toLocaleString("ko-KR")+"원",sel=()=>el("#sidebar-issuer");
+ assert.equal(sel().options.length,1+fixture.config.cards.length);assert.equal(sel().value,"");assert.equal(el("[data-sidebar-total]").textContent,wonT(sum()));
+ sel().value="nh";sel().dispatchEvent(event("change"));assert.equal(el("[data-sidebar-total]").textContent,wonT(sum("nh")));assert.equal(saves,fSaves);assert.equal(run("dirty"),false);assert.equal(JSON.stringify(json("D")),fDraft);assert.equal(el("[data-settle-table]"),fTable);assert.equal(el(".account-card")?.textContent,fMeta);
+ const cats=[...d.querySelectorAll(".category-total")].map(n=>n.firstElementChild.textContent);assert.deepEqual(cats,json("CU.orderedCategories(D.cats,D.txs)"));
+ const emptyIssuer=fixture.config.cards.find(c=>!json("D.txs").some(t=>t.card===c.id));if(emptyIssuer){sel().value=emptyIssuer.id;sel().dispatchEvent(event("change"));assert.equal(el("[data-sidebar-total]").textContent,"0원");assert.ok([...d.querySelectorAll(".category-total")].every(n=>n.classList.contains("is-zero")))}
+ sel().value="samsung";sel().dispatchEvent(event("change"));const before=sum("samsung");
+ run('D.txs.find(t=>t.card==="samsung").amount+=7;refreshCategorySidebar()');assert.equal(sel().value,"samsung");assert.equal(el("[data-sidebar-total]").textContent,wonT(before+7));
+ el('nav [data-view="rules"]').click();el('nav [data-view="settle"]').click();assert.equal(sel().value,"samsung");
+ run('D.txs.push({id:9999,card:"samsung",date:"2026-11-01",orig:"x",label:"x",amount:5,category:"개인",chk:true});refreshCategorySidebar()');assert.equal(el("[data-sidebar-total]").textContent,wonT(before+12));
+ el("#save").click();assert.equal(sel().value,"samsung");assert.equal(el("[data-sidebar-total]").textContent,wonT(sum("samsung")));
+ run('sidebarIssuer="bogus";refreshCategorySidebar()');assert.equal(sel().value,"");assert.equal(el("[data-sidebar-total]").textContent,wonT(sum()));
+ console.log("test-category-ui: ok (issuer filter, colors/order, all-card sums, shortcuts, stable inputs, draft settings, save/reload, rename safety)");dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});
