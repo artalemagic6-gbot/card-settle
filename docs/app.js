@@ -57,24 +57,27 @@ async function start(){CFG=await (await fetch("./data/config.json",{cache:"no-st
  const raw=localStorage.getItem(KEY);if(raw)S=JSON.parse(raw);else{const o=localStorage.getItem(OLD);S=o?migrate(JSON.parse(o)):blank()}
  S.accounts=SM.normalizeAccounts(S.accounts,CFG.accounts);S.cats=S.cats||[...CFG.cats];
  S.cards=S.cards||{};for(const c of CFG.cards)if(!S.cards[c.id])S.cards[c.id]={used:0,cycleStart:now()};
- S.txs=S.txs||[];S.ledger=S.ledger||[];S.cycles=S.cycles||[];S.catColors=CU.normalizeColors(S.catColors,S.cats);Object.assign(S,U.normalizedState(S));D=clone(S);
+ S.txs=S.txs||[];S.ledger=S.ledger||[];S.cycles=S.cycles||[];S.catColors=CU.normalizeColors(S.catColors,S.cats);Object.assign(S,U.normalizedState(S));D=draftOf(S);
  document.querySelectorAll("nav button[data-view]").forEach(b=>b.onclick=()=>{view=b.dataset.view;document.querySelectorAll("nav button[data-view]").forEach(x=>x.classList.toggle("on",x===b));render()});
  $("#save").onclick=doSave;window.onbeforeunload=e=>{if(dirty){e.preventDefault();e.returnValue=""}};render()}
+// Selection is view-only (ids, never saved). Pending intent lives on draft rows as t.pending and only takes effect at top Save.
+const selected=new Set();
+function draftOf(st){const d=clone(st);for(const t of d.txs||[]){delete t.chk;delete t.pending}return d}
 function persist(state=S){localStorage.setItem(KEY,JSON.stringify(state))}
 function touch(){dirty=true;$("#dirty").textContent="저장 안 됨"}
-function doSave(){const next=clone(D);Object.assign(next,U.normalizedState(next),U.learn(next,now()));
+function doSave(){const next=clone(D);const drop=new Set(next.txs.filter(t=>t.pending==="delete").map(t=>t.id));next.txs=next.txs.filter(t=>!drop.has(t.id));Object.assign(next,U.normalizedState(next),U.learn(next,now()));
  // Prepare a complete next state first. Storage failure must not move rows or teach rules.
  if(next.lastReconciledAt!==S.lastReconciledAt)next.cutoffHistory.push({previous:S.lastReconciledAt,current:next.lastReconciledAt,savedAt:now()});
  for(const c of CFG.cards){const o=S.cards[c.id]||{},n=next.cards[c.id];if(o.used&&n.used!==o.used){
   next.cycles.push({card:c.id,cardName:c.name,used:o.used,start:o.cycleStart,closedAt:now(),formulaVersion:3,accountId:c.account,cardDeposit:calcIn(S,c.id).deposit,accountNeed:accountCalcIn(S,c.account).need,safetyBuffer:accountCalcIn(S,c.account).safetyBuffer,openLeft:S.txs.filter(t=>t.card===c.id).length,balance:S.accounts[c.account].balance});n.cycleStart=now()}}
- const keep=[];for(const t of next.txs){delete t.categoryEdited;if(t.chk)next.ledger.push(rec(t,next));else keep.push(t)}next.txs=keep;
- try{persist(next)}catch(e){alert("저장하지 못했어요. 입력과 체크는 그대로 남아 있어요. 저장 공간을 확인한 뒤 다시 저장해주세요.");return false}
- S=next;D=clone(next);dirty=false;$("#dirty").textContent="저장됨";render();return true}
+ const keep=[];for(const t of next.txs){delete t.categoryEdited;const settle=t.pending==="settle";delete t.chk;delete t.pending;if(settle)next.ledger.push(rec(t,next));else keep.push(t)}next.txs=keep;
+ try{persist(next)}catch(e){alert("저장하지 못했어요. 입력과 정산·삭제 예정은 그대로 남아 있어요. 저장 공간을 확인한 뒤 다시 저장해주세요.");return false}
+ S=next;D=draftOf(next);selected.clear();dirty=false;$("#dirty").textContent="저장됨";render();return true}
 function classify(m,cid="",ref="",fallback=""){return U.resolveCategory(D,CFG.rules,m,cid,ref,fallback)}
 const cardsOf=a=>CFG.cards.filter(c=>c.account===a).sort((x,y)=>x.sort-y.sort);
 function calcIn(st,cid){const list=(st.txs||[]).filter(t=>t.card===cid);const os=list.reduce((a,t)=>a+SM.number(t.amount),0);
  const q=SM.cardTotals({used:st.cards[cid]?.used,openSum:os});
- return {...q,os,diff:q.deposit,done:list.filter(t=>t.chk).reduce((a,t)=>a+SM.number(t.amount),0)}}
+ return {...q,os,diff:q.deposit,done:list.filter(t=>t.pending==="settle").reduce((a,t)=>a+SM.number(t.amount),0)}}
 function accountCalcIn(st,aid){const a=st.accounts[aid]||{};return SM.accountTotals({cards:cardsOf(aid).map(c=>calcIn(st,c.id)),balance:a.balance,safetyBuffer:a.safetyBuffer??SM.defaultBuffer(aid)})}
 const calc=cid=>calcIn(D,cid);
 const k=t=>t.approval_no?"a:"+t.approval_no:`d:${t.date}|${t.orig||t.merchant}|${t.amount}`;
@@ -89,12 +92,12 @@ function load(cid){const payload=U.importPayload(STG,cid),rows=payload.rows;if(p
 const catOpts=v=>CU.orderedCategories(D.cats,D.txs).map((c,i)=>`<option value="${esc(c)}" ${c===v?"selected":""}>${CU.shortcutAt(i)} ${esc(c)}</option>`).join("");
 function sortHeader(key,label){const active=settleSort.key===key;return `<th aria-sort="${active?(settleSort.dir===1?"ascending":"descending"):"none"}"><button type="button" data-sort="${key}" aria-label="${label} 정렬">${label}${active?(settleSort.dir===1?" ↑":" ↓"):""}</button></th>`}
 function physicalOptions(t){const current=U.cardRef(t);return `<option value="">미지정</option>`+U.physicalCards(D,t.card).map(r=>`<option value="${esc(r.ref)}" ${r.ref===current?"selected":""}>${esc(r.label)}</option>`).join("")}
-function openTable(list){const rows=U.sortRows(list,settleSort,D.cats,t=>U.cardLabel(t,D));return `<table data-settle-table><thead><tr>${[["date","날짜"],["physical","카드"],["orig","원본이름"],["label","내역"],["amount","금액"],["category","분류"],["note","메모"]].map(([key,label])=>sortHeader(key,label)).join("")}<th>정산</th><th></th></tr></thead><tbody>`+
- rows.map(t=>`<tr data-row="${t.id}" data-color-category="${esc(t.category||"미분류")}" class="${t.chk?"done":""} ${t.virtual?"virtual":""}"><td>${SE.rowDateHtml(t,esc)}</td><td><select class="physical-card" data-physical="${t.id}" aria-label="개별 카드 표시" title="${esc(U.cardLabel(t,D))}">${physicalOptions(t)}</select></td><td class="k">${esc(t.orig)}${t.needsReview?'<span class="review-badge" title="날짜 또는 분류를 확인해주세요">확인</span>':""}</td>
+function openTable(list){const rows=U.sortRows(list,settleSort,D.cats,t=>U.cardLabel(t,D));return `<table data-settle-table><thead><tr>${[["date","날짜"],["physical","카드"],["orig","원본이름"],["label","내역"],["amount","금액"],["category","분류"],["note","메모"]].map(([key,label])=>sortHeader(key,label)).join("")}<th>선택</th><th></th></tr></thead><tbody>`+
+ rows.map(t=>`<tr data-row="${t.id}" data-color-category="${esc(t.category||"미분류")}" class="${t.pending==="settle"?"done pending-settle":t.pending==="delete"?"pending-delete":""} ${t.virtual?"virtual":""}"><td>${SE.rowDateHtml(t,esc)}</td><td><select class="physical-card" data-physical="${t.id}" aria-label="개별 카드 표시" title="${esc(U.cardLabel(t,D))}">${physicalOptions(t)}</select></td><td class="k">${esc(t.orig)}${t.needsReview?'<span class="review-badge" title="날짜 또는 분류를 확인해주세요">확인</span>':""}</td>
  <td><input class="m" data-id="${t.id}" data-f="label" value="${esc(t.label)}"></td>
  <td class="n"><input data-id="${t.id}" data-f="amount" class="money-input" type="text" inputmode="decimal" value="${U.money(t.amount)}" title="${t.amountEstimated?"환율 환산 추정액 · 실제 원화 금액으로 수정할 수 있어요":"원화 금액"}" style="width:100px">${t.amountEstimated?`<small class="review-badge estimate-note" data-estimate="${t.id}">환산 추정</small>`:""}</td>
  <td><button type="button" class="category-picker" data-cat-picker="${t.id}">${esc(t.category)}</button></td><td><input data-id="${t.id}" data-f="note" value="${esc(t.note)}"></td>
- <td><input type="checkbox" data-chk="${t.id}" ${t.chk?"checked":""}></td><td><button type="button" data-del="${t.id}">✕</button></td></tr>`).join("")+"</tbody></table>"}
+ <td><input type="checkbox" data-chk="${t.id}" aria-label="선택" ${selected.has(t.id)?"checked":""}>${t.pending?`<small class="pending-badge">${t.pending==="settle"?"정산 예정":"삭제 예정"}</small>`:""}</td><td>${t.pending?`<button type="button" data-undo="${t.id}" class="subtle" title="예정 취소">취소</button>`:`<button type="button" data-del="${t.id}" aria-label="삭제 예정으로 표시">✕</button>`}</td></tr>`).join("")+"</tbody></table>"}
 /** Update settle summary + mini cards without rebuilding the open-tx table (keeps focus for Tab). */
 function refreshSettleMeta(){
  if(view!=="settle"||!D||!CFG)return;
@@ -124,9 +127,9 @@ function settleView(){const a=D.acct;const cs=cardsOf(a);if(!cs.find(c=>c.id===D
  <div class="minis">${cs.map(x=>{const q=calc(x.id);return `<button type="button" class="mini ${x.id===c.id?"on":""} ${q.used&&q.diff===0?"ok":""}" data-card="${x.id}"><b>${x.name}</b><br><span class="k" data-mini-used>이용 ${won(q.used)}</span><br><span data-mini-deposit>입금 ${won(q.deposit)}</span></button>`}).join("")}</div>
  <div class="card"><h2 style="margin:0 0 6px">${c.name}카드 <span class="k" style="font-size:13px">결제일 ${c.payDay}일${last?` · 지난 회차 ${won(last.used)} (${last.closedAt.slice(0,10)})`:""}</span> <button type="button" id="card-settings" class="subtle settings-button">카드 설정</button></h2>
  <div class="row"><span class="k">이용금액</span><input id="used" class="money-input" type="text" inputmode="decimal" value="${U.money(r.used)}" placeholder="청구 이용금액"><span class="k">값을 바꿔 저장하면 이전 회차는 과거로 보관돼요</span></div>
- <div class="row"><span class="k">카드 입금금액</span><span id="sum-diff" class="v">${won(r.deposit)}</span><span class="k">= 이용금액 − 남겨둔 내역합 </span><span id="sum-os" class="k">${won(r.os)}</span><span class="k">· 체크 </span><span id="sum-done" class="k">${won(r.done)}</span></div>
+ <div class="row"><span class="k">카드 입금금액</span><span id="sum-diff" class="v">${won(r.deposit)}</span><span class="k">= 이용금액 − 남겨둔 내역합 </span><span id="sum-os" class="k">${won(r.os)}</span><span class="k">· 정산 예정 </span><span id="sum-done" class="k">${won(r.done)}</span></div>
  <button class="big primary" id="load">카드내역 불러오기</button>
- <div class="row"><button id="addv">+ 수기 입력(차액만큼 개인차액)</button><button id="chkall">전체 체크</button></div>
+ <div class="row settle-toolbar"><button id="addv">+ 수기 입력</button><span class="toolbar-actions"><button type="button" id="chkall">전체</button><button type="button" id="settle-selected">정산</button><button type="button" id="delete-selected">삭제</button></span></div>
  <div class="table-scroll">${openTable(D.txs.filter(t=>t.card===c.id))}</div></div>`}
 function ledgerView(){const L=[...S.ledger].sort((x,y)=>String(y.date).localeCompare(String(x.date)));const by=Object.create(null);L.forEach(t=>by[t.category]=(by[t.category]||0)+t.amount);
  return `<div class="card row"><span class="k">저장된 정산 ${L.length}건</span>${Object.entries(by).map(([k,v])=>`<span class="k">${esc(k)}</span><span class="v">${won(v)}</span>`).join(" ")}</div>
@@ -142,7 +145,7 @@ function rulesView(){return `<div class="card"><div class="section-heading"><h2>
  <table>${D.rules.map((r,i)=>`<tr><td>${esc(r.match)}</td><td>${esc(r.category)}</td><td><button data-rdel="${i}" class="subtle">삭제</button></td></tr>`).join("")}</table></div>${WF.learnedPanel(D,esc,catOpts)}`}
 let sidebarIssuer="";
 function refreshCategorySidebar(){const el=$("#category-sidebar");if(!el||!D)return;if(sidebarIssuer&&!CFG.cards.some(c=>c.id===sidebarIssuer))sidebarIssuer="";const wasOpen=el.querySelector("details")?.open??true,hadFocus=document.activeElement?.id==="sidebar-issuer",txs=sidebarIssuer?D.txs.filter(t=>t.card===sidebarIssuer):D.txs,rows=CU.categoryTotals(D.cats,txs),total=rows.reduce((n,r)=>n+r.amount,0);
- el.innerHTML=`<details ${wasOpen?"open":""}><summary><span class="eyebrow">${sidebarIssuer?esc(CFG.cards.find(c=>c.id===sidebarIssuer).name):"모든 카드"}</span><h2>분류별 정산 예정</h2></summary><label class="sidebar-filter"><span class="sr-only">카드사 필터</span><select id="sidebar-issuer" aria-label="카드사 필터"><option value="">모든 카드</option>${CFG.cards.map(c=>`<option value="${esc(c.id)}" ${c.id===sidebarIssuer?"selected":""}>${esc(c.name)}</option>`).join("")}</select></label><div class="sidebar-total" data-sidebar-total>${won(total)}</div><div class="category-totals">${rows.map(r=>`<div class="category-total ${r.amount===0?"is-zero":""}" style="--cat-color:${CU.colorFor(r.category,D.catColors)}"><span><i class="color-dot" aria-hidden="true"></i>${esc(r.category)}</span><strong>${won(r.amount)}</strong></div>`).join("")}</div><p class="sidebar-note">남겨둔 내역 합계예요.<br>체크한 내역도 저장 전에는 포함돼요.</p><button type="button" id="category-settings" class="subtle">분류 설정</button></details>`;
+ el.innerHTML=`<details ${wasOpen?"open":""}><summary><span class="eyebrow">${sidebarIssuer?esc(CFG.cards.find(c=>c.id===sidebarIssuer).name):"모든 카드"}</span><h2>분류별 정산 예정</h2></summary><label class="sidebar-filter"><span class="sr-only">카드사 필터</span><select id="sidebar-issuer" aria-label="카드사 필터"><option value="">모든 카드</option>${CFG.cards.map(c=>`<option value="${esc(c.id)}" ${c.id===sidebarIssuer?"selected":""}>${esc(c.name)}</option>`).join("")}</select></label><div class="sidebar-total" data-sidebar-total>${won(total)}</div><div class="category-totals">${rows.map(r=>`<div class="category-total ${r.amount===0?"is-zero":""}" style="--cat-color:${CU.colorFor(r.category,D.catColors)}"><span><i class="color-dot" aria-hidden="true"></i>${esc(r.category)}</span><strong>${won(r.amount)}</strong></div>`).join("")}</div><p class="sidebar-note">남겨둔 내역 합계예요.<br>정산·삭제 예정 내역도 저장 전에는 포함돼요.</p><button type="button" id="category-settings" class="subtle">분류 설정</button></details>`;
  const sel=el.querySelector("#sidebar-issuer");sel.onchange=()=>{sidebarIssuer=sel.value;refreshCategorySidebar()};if(hadFocus)sel.focus();
  const btn=$("#category-settings");if(btn)btn.onclick=()=>{view="rules";document.querySelectorAll("nav button[data-view]").forEach(b=>b.classList.toggle("on",b.dataset.view===view));render()}}
 function closeAccountSettings(){const dialog=$("#account-dialog");if(dialog?.close)dialog.close();else dialog?.removeAttribute("open");if(accountDialogTrigger?.isConnected)accountDialogTrigger.focus()}
@@ -154,8 +157,9 @@ function render(){categoryPickers.forEach(p=>p.destroy());categoryPickers=[];$("
  all("[data-cat-picker]",el=>{const t=T(el.dataset.catPicker);if(!t)return;categoryPickers.push(CU.mountCategoryPicker(el,{getOptions:()=>CU.orderedCategories(D.cats,D.txs),getValue:()=>t.category,getColors:()=>D.catColors,onCommit:category=>{if(t.category!==category&&!t.virtual)t.categoryEdited=true;t.category=category;const row=el.closest("tr");row.dataset.colorCategory=category;CU.paintTransactionRow(row,category,D.catColors);touch();refreshCategorySidebar()}}))});
  // Inline field edits: update model (+ summary if needed) without destroying the table DOM so Tab/Shift+Tab stay natural.
  all("[data-f]",el=>el.onchange=()=>{const t=T(el.dataset.id);if(!t)return;const f=el.dataset.f;const value=f==="amount"?WF.moneyValue(el,t.amount):el.value;if(value===null)return;SE.applyField(t,f,value);if(f==="amount"){t.amountEstimated=false;$('[data-estimate="'+t.id+'"]')?.remove();el.title="수정한 원화 금액"}touch();if(SE.fieldAffectsSummary(f))refreshSettleMeta()});
- all("[data-chk]",el=>el.onchange=()=>{const t=T(el.dataset.chk);if(!t)return;t.chk=el.checked;el.closest("tr")?.classList.toggle("done",el.checked);touch();refreshSettleMeta()});
- all("[data-del]",b=>b.onclick=()=>{if(confirm("이 열린 내역 삭제?")){D.txs=D.txs.filter(t=>t.id!=b.dataset.del);touch();render()}});
+ all("[data-chk]",el=>el.onchange=()=>{const t=T(el.dataset.chk);if(!t)return;if(el.checked)selected.add(t.id);else selected.delete(t.id)});
+ all("[data-del]",b=>b.onclick=()=>{const t=T(b.dataset.del);if(t&&confirm("이 내역을 삭제 예정으로 표시할까요? 위의 저장을 눌러야 실제로 삭제돼요.")){t.pending="delete";selected.delete(t.id);touch();render()}});
+ all("[data-undo]",b=>b.onclick=()=>{const t=T(b.dataset.undo);if(t){delete t.pending;touch();render()}});
  all("[data-acct]",b=>b.onclick=()=>{D.acct=b.dataset.acct;render()});
  all("[data-card]",b=>b.onclick=()=>{D.cur=b.dataset.card;render()});
  on("#bal",e=>{const n=WF.moneyValue(e.target,D.accounts[D.acct].balance);if(n===null)return;D.accounts[D.acct].balance=n;touch();refreshSettleMeta()},"onchange");
@@ -165,7 +169,10 @@ function render(){categoryPickers.forEach(p=>p.destroy());categoryPickers=[];$("
  const dialog=$("#account-dialog");if(dialog)dialog.oncancel=e=>{e.preventDefault();closeAccountSettings()};
  on("#used",e=>{const n=WF.moneyValue(e.target,D.cards[D.cur].used);if(n===null)return;D.cards[D.cur].used=n;touch();refreshSettleMeta()},"onchange");
  on("#load",()=>load(D.cur));
- on("#chkall",()=>{D.txs.filter(t=>t.card===D.cur).forEach(t=>t.chk=true);touch();render()});
+ const curRows=()=>D.txs.filter(t=>t.card===D.cur),picked=()=>curRows().filter(t=>selected.has(t.id));
+ on("#chkall",()=>{const rows=curRows(),allOn=rows.length&&rows.every(t=>selected.has(t.id));rows.forEach(t=>allOn?selected.delete(t.id):selected.add(t.id));all("[data-chk]",el=>{el.checked=selected.has(T(el.dataset.chk)?.id)})});
+ on("#settle-selected",()=>{const rows=picked();if(!rows.length){alert("정산할 내역을 먼저 선택해주세요.");return}rows.forEach(t=>{t.pending="settle";selected.delete(t.id)});touch();render()});
+ on("#delete-selected",()=>{const rows=picked();if(!rows.length){alert("삭제할 내역을 먼저 선택해주세요.");return}if(!confirm(`선택한 ${rows.length}건을 삭제 예정으로 표시할까요? 위의 저장을 눌러야 실제로 삭제되고 정산 내역에는 남지 않아요.`))return;rows.forEach(t=>{t.pending="delete";selected.delete(t.id)});touch();render()});
  on("#addv",()=>{const d=calc(D.cur).diff;D.txs.push({id:D.nextId++,card:D.cur,date:new Date().toISOString().slice(0,10),orig:"수기입력",label:"개인차액",amount:d,category:"개인",note:"",chk:false,virtual:true,loadedAt:now()});touch();render()});
  const dl=(txt,name,type)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click()};
  on("#exp",()=>dl(JSON.stringify(S,null,1),"card-settle.json","application/json"));

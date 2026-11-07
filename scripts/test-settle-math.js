@@ -18,17 +18,19 @@ vm.createContext(ctx);for(const f of ["settle-edit.js","settle-math.js","categor
 const run=s=>vm.runInContext(s,ctx),result=s=>JSON.parse(JSON.stringify(run(s)));
 (async()=>{
  // Exercise actual startup/migration: no storage writes and no data loss.
- run("render=()=>{}");await run("start()");assert.equal(saveCount,0);assert.equal(storage,JSON.stringify(fixture));assert.equal(run('D.accounts["352"].safetyBuffer'),500000);assert.deepEqual(result("D.txs"),fixture.txs);
+ run("render=()=>{}");await run("start()");assert.equal(saveCount,0);assert.equal(storage,JSON.stringify(fixture));assert.equal(run('D.accounts["352"].safetyBuffer'),500000);assert.deepEqual(result("D.txs"),fixture.txs.map(({chk,...t})=>t),"legacy chk is dropped from the draft only");
  assert.deepEqual(result('CFG.cards.filter(c=>c.account==="352").map(c=>calc(c.id).deposit)'),[0,6600,52490]);
  assert.deepEqual(result('accountCalcIn(D,"352")'),{used:3783879,cardDeposit:59090,safetyBuffer:500000,deposit:559090,balance:559090,need:0});
  assert.equal(run('accountCalcIn(D,"302").need'),0);
  run('D.accounts["352"].balance=560090');assert.equal(run('accountCalcIn(D,"352").need'),-1000);assert.equal(run('calc("samsung").deposit'),6600);
  run('D.accounts["352"].balance=559090;D.txs[0].amount-=1000');assert.equal(run('calc("shinhan").deposit'),1000);assert.equal(run('accountCalcIn(D,"352").need'),1000);
  run('D.txs[0].amount+=1000;CFG.cards.reverse()');assert.equal(run('accountCalcIn(D,"352").need'),0);assert.equal(run('calc("shinhan").deposit'),0);
- // Check-only keeps the row in the open sum; top Save moves it once.
- run('D.txs[0].chk=true');assert.equal(run('calc("shinhan").deposit'),0);assert.equal(run('accountCalcIn(D,"352").need'),0);assert.equal(saveCount,0);
+ // Legacy chk / selection alone never settles: Save keeps the row and writes no ledger.
+ run('D.txs[0].chk=true;selected.add(D.txs[0].id);doSave()');assert.equal(run("S.ledger.length"),0);assert.equal(run('S.txs.some(t=>t.card==="shinhan")'),true);assert.equal(JSON.parse(storage).txs.some(t=>"chk" in t),false);
+ // Pending settlement keeps the row in the open sum until top Save moves it once.
+ run('D.txs[0].pending="settle"');assert.equal(run('calc("shinhan").deposit'),0);assert.equal(run('accountCalcIn(D,"352").need'),0);assert.equal(saveCount,1);
  const table=node("table[data-settle-table]"),beforeWrites=htmlWrites;run("refreshSettleMeta()");assert.equal(node("table[data-settle-table]"),table);assert.equal(htmlWrites,beforeWrites,"summary must not replace input/table DOM");assert.equal(node("#account-deposit").textContent,"559,090원");
- run("doSave()");assert.equal(saveCount,1);assert.equal(run('calc("shinhan").deposit'),50889);assert.equal(run('accountCalcIn(D,"352").need'),50889);assert.equal(run("S.ledger.length"),1);assert.equal(run('S.txs.some(t=>t.card==="shinhan")'),false);
+ run("doSave()");assert.equal(saveCount,2);assert.equal(run('calc("shinhan").deposit'),50889);assert.equal(run('accountCalcIn(D,"352").need'),50889);assert.equal(run("S.ledger.length"),1);assert.equal(run('S.txs.some(t=>t.card==="shinhan")'),false);
  run("doSave()");assert.equal(run("S.ledger.length"),1,"second Save must not duplicate ledger");
  run('D.accounts["352"].safetyBuffer=0;doSave()');assert.equal(JSON.parse(storage).accounts["352"].safetyBuffer,0);const count=saveCount;await run("start()");assert.equal(run('D.accounts["352"].safetyBuffer'),0);assert.equal(saveCount,count,"reload must not save");
  // Preserve old historical meanings; new snapshots explicitly name account-level need.
@@ -39,5 +41,9 @@ const run=s=>vm.runInContext(s,ctx),result=s=>JSON.parse(JSON.stringify(run(s)))
  run('D.txs.push({id:9,card:"samsung",amount:-140000,category:"다른분류"})');assert.equal(run('calc("samsung").deposit'),146600);
  const app=fs.readFileSync(path.join(root,"docs/app.js"),"utf8");assert.doesNotMatch(app,/Math\.max\(0,used-bal\)/);assert.match(app,/on\("#account-form"[^\n]+refreshSettleMeta/);
  const index=fs.readFileSync(path.join(root,"docs/index.html"),"utf8");assert.ok(index.indexOf("settle-math.js")<index.indexOf("./app.js"));assert.match(index,/app\.js\?v=\d{8}[a-z]/);
- console.log("test-settle-math: ok (original formulas, signed totals, migration, startup, top-save ledger, history, stable DOM)");
+ // Saved chk/pending never revive processing after restart.
+ {const st=JSON.parse(storage);st.txs=[{id:801,card:"shinhan",amount:10,orig:"a",label:"a",category:"개인",pending:"settle",chk:true},{id:802,card:"shinhan",amount:20,orig:"b",label:"b",category:"개인",pending:"delete"}];storage=JSON.stringify(st);const raw=storage,n=saveCount,l=run("S.ledger.length");
+ await run("start()");assert.equal(saveCount,n);assert.equal(storage,raw);assert.equal(run("D.txs.some(t=>'chk' in t||'pending' in t)"),false);assert.equal(run("selected.size"),0);assert.equal(run("S.ledger.length"),l);
+ run("doSave()");assert.deepEqual(result("S.txs.map(t=>t.id)"),[801,802]);assert.equal(run("S.ledger.length"),l);assert.equal(JSON.parse(storage).txs.some(t=>"pending" in t||"chk" in t),false);}
+ console.log("test-settle-math: ok (restart-safe intents, original formulas, signed totals, migration, startup, top-save ledger, history, stable DOM)");
 })().catch(e=>{console.error(e);process.exitCode=1});
