@@ -12,9 +12,9 @@ assert.equal(JSON.stringify(prior),original,"normalization must not mutate saved
 prior["352"].safetyBuffer=0;assert.equal(SM.normalizeAccounts(prior,configs)["352"].safetyBuffer,0);assert.equal(SM.normalizeAccounts(JSON.parse(JSON.stringify(prior)),configs)["352"].safetyBuffer,0);
 assert.equal(SM.cardTotals({used:10,openSum:-5}).deposit,15);assert.equal(SM.cardTotals({used:10,openSum:15}).deposit,-5);assert.equal(SM.number(Infinity),0);
 let storage=JSON.stringify(fixture),saveCount=0,htmlWrites=0;const nodes=new Map();
-const node=id=>{if(!nodes.has(id)){let html="";nodes.set(id,{hidden:false,style:{},textContent:"",className:"",addEventListener(){},classList:{toggle(){}},querySelector(){return node("button")},get innerHTML(){return html},set innerHTML(v){html=v;htmlWrites++}})}return nodes.get(id)};
+const node=id=>{if(!nodes.has(id)){let html="";nodes.set(id,{hidden:false,style:{},textContent:"",className:"",addEventListener(){},classList:{toggle(){}},querySelector(){return node("button")},get innerHTML(){return html},set innerHTML(v){html=v;if(id==="#app"||id==="table[data-settle-table]")htmlWrites++}})}return nodes.get(id)};
 const ctx={console,Date,Set,Map,Uint8Array,TextEncoder,Number,JSON,setTimeout,clearTimeout,fetch:async()=>({json:async()=>clone(CFG)}),document:{querySelector:node,querySelectorAll:()=>[],getElementById:id=>node("#"+id)},sessionStorage:{getItem:()=>null},localStorage:{getItem:key=>key==="card-settle-pages-v2"?storage:null,setItem:(key,value)=>{storage=value;saveCount++}},window:{}};
-vm.createContext(ctx);for(const f of ["settle-edit.js","settle-math.js","app.js"])vm.runInContext(fs.readFileSync(path.join(root,"docs",f),"utf8"),ctx);
+vm.createContext(ctx);for(const f of ["settle-edit.js","settle-math.js","category-ui.js","app.js"])vm.runInContext(fs.readFileSync(path.join(root,"docs",f),"utf8"),ctx);
 const run=s=>vm.runInContext(s,ctx),result=s=>JSON.parse(JSON.stringify(run(s)));
 (async()=>{
  // Exercise actual startup/migration: no storage writes and no data loss.
@@ -37,7 +37,7 @@ const run=s=>vm.runInContext(s,ctx),result=s=>JSON.parse(JSON.stringify(run(s)))
  const history=run("historyView()");assert.match(history,/이전 방식 카드 필요액/);assert.match(history,/352 계좌 필요/);
  // Account model uses all open rows, not a UI category/search subset.
  run('D.txs.push({id:9,card:"samsung",amount:-140000,category:"다른분류"})');assert.equal(run('calc("samsung").deposit'),146600);
- const app=fs.readFileSync(path.join(root,"docs/app.js"),"utf8");assert.doesNotMatch(app,/Math\.max\(0,used-bal\)/);assert.match(app,/on\("#buffer"[^\n]+refreshSettleMeta/);
- const index=fs.readFileSync(path.join(root,"docs/index.html"),"utf8");assert.ok(index.indexOf("settle-math.js")<index.indexOf("./app.js"));assert.match(index,/20261107a/);
+ const app=fs.readFileSync(path.join(root,"docs/app.js"),"utf8");assert.doesNotMatch(app,/Math\.max\(0,used-bal\)/);assert.match(app,/on\("#account-form"[^\n]+refreshSettleMeta/);
+ const index=fs.readFileSync(path.join(root,"docs/index.html"),"utf8");assert.ok(index.indexOf("settle-math.js")<index.indexOf("./app.js"));assert.match(index,/app\.js\?v=\d{8}[a-z]/);
  console.log("test-settle-math: ok (original formulas, signed totals, migration, startup, top-save ledger, history, stable DOM)");
 })().catch(e=>{console.error(e);process.exitCode=1});

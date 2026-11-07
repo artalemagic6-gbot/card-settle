@@ -1,0 +1,169 @@
+{
+  "config": {
+    "accounts": [
+      {
+        "id": "352",
+        "name": "352계좌",
+        "balance": 0
+      },
+      {
+        "id": "302",
+        "name": "302계좌",
+        "balance": 0
+      },
+      {
+        "id": "other",
+        "name": "기타",
+        "balance": 0
+      }
+    ],
+    "cats": [
+      "개인",
+      "데이트",
+      "부동산",
+      "크림",
+      "섬김비",
+      "연체",
+      "취미",
+      "추가1",
+      "추가2",
+      "추가3"
+    ],
+    "rules": [],
+    "cards": [
+      {
+        "id": "shinhan",
+        "name": "신한",
+        "account": "352",
+        "sort": 1,
+        "payDay": 14
+      },
+      {
+        "id": "samsung",
+        "name": "삼성",
+        "account": "352",
+        "sort": 2,
+        "payDay": 13
+      },
+      {
+        "id": "hana",
+        "name": "하나",
+        "account": "352",
+        "sort": 3,
+        "payDay": 13
+      },
+      {
+        "id": "nh",
+        "name": "농협",
+        "account": "302",
+        "sort": 1,
+        "payDay": 1
+      }
+    ]
+  },
+  "state": {
+    "v": 2,
+    "acct": "352",
+    "cur": "shinhan",
+    "nextId": 5,
+    "accounts": {
+      "352": {
+        "name": "352계좌",
+        "balance": 500000
+      },
+      "302": {
+        "name": "302계좌",
+        "balance": 100000
+      },
+      "other": {
+        "name": "기타",
+        "balance": 0
+      }
+    },
+    "cards": {
+      "shinhan": {
+        "used": 100
+      },
+      "samsung": {
+        "used": 200
+      },
+      "hana": {
+        "used": 300
+      },
+      "nh": {
+        "used": -50
+      }
+    },
+    "txs": [
+      {
+        "id": 1,
+        "card": "shinhan",
+        "amount": 100,
+        "date": "2026-11-07",
+        "orig": "예시 가맹점 A",
+        "label": "예시 수기 내역",
+        "category": "개인",
+        "note": "테스트용",
+        "chk": false,
+        "virtual": true
+      },
+      {
+        "id": 2,
+        "card": "samsung",
+        "amount": 200,
+        "date": "2026-11-07",
+        "orig": "예시 가맹점 B",
+        "label": "예시 내역 B",
+        "category": "데이트",
+        "note": "",
+        "chk": false
+      },
+      {
+        "id": 3,
+        "card": "hana",
+        "amount": 300,
+        "date": "2026-11-07",
+        "orig": "예시 가맹점 C",
+        "label": "예시 내역 C",
+        "category": "부동산",
+        "note": "",
+        "chk": false
+      },
+      {
+        "id": 4,
+        "card": "nh",
+        "amount": -50,
+        "date": "2026-11-07",
+        "orig": "예시 환불",
+        "label": "예시 환불",
+        "category": "개인",
+        "note": "",
+        "chk": false
+      }
+    ],
+    "ledger": [
+      {
+        "lid": "example-old",
+        "category": "개인",
+        "amount": 900000,
+        "date": "2026-01-01",
+        "cardName": "예시",
+        "label": "테스트용 과거 기록"
+      }
+    ],
+    "cycles": [],
+    "cats": [
+      "개인",
+      "데이트",
+      "부동산",
+      "크림",
+      "섬김비",
+      "연체",
+      "취미",
+      "추가1",
+      "추가2",
+      "추가3"
+    ],
+    "rules": []
+  }
+}

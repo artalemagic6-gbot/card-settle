@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "import-sample": "node scripts/import-sample.js",
-    "build:static": "node scripts/build-static.js"
+    "build:static": "node scripts/build-static.js",
+    "test:pages": "node scripts/test-settle-edit.js && node scripts/test-settle-math.js && node scripts/test-category-ui.js"
   },
   "engines": {
     "node": ">=18"
@@ -18,5 +19,8 @@
     "express": "^5.1.0",
     "multer": "^2.0.2",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
   }
 }
