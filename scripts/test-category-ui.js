@@ -12,7 +12,7 @@ const dom=new JSDOM(fs.readFileSync(path.join(root,"docs/index.html"),"utf8"),{u
 const w=dom.window,d=w.document,alerts=[];w.fetch=async()=>({json:async()=>fixture.config});w.alert=text=>alerts.push(text);w.confirm=()=>true;
 w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute("open");this.dispatchEvent(new w.Event("close"))};
 const key="card-settle-pages-v2",raw=JSON.stringify(fixture.state);w.localStorage.setItem(key,raw);let saves=0;const set=w.Storage.prototype.setItem;w.Storage.prototype.setItem=function(...args){saves++;return set.apply(this,args)};
-for(const name of ["settle-edit.js","settle-math.js","category-ui.js","app.js"])vm.runInContext(fs.readFileSync(path.join(root,"docs",name),"utf8"),dom.getInternalVMContext());
+for(const name of ["settle-edit.js","settle-math.js","category-ui.js","settle-tools.js","settle-workflow.js","app.js"])vm.runInContext(fs.readFileSync(path.join(root,"docs",name),"utf8"),dom.getInternalVMContext());
 const run=s=>vm.runInContext(s,dom.getInternalVMContext()),json=s=>JSON.parse(JSON.stringify(run(s))),el=s=>d.querySelector(s),event=(type,opts={})=>new w.Event(type,{bubbles:true,cancelable:true,...opts});
 const press=(node,key,opts={})=>{const e=new w.KeyboardEvent("keydown",{key,bubbles:true,cancelable:true,...opts});node.dispatchEvent(e);return e};
 const value=(selector,v,type="change")=>{const n=el(selector);n.value=v;n.dispatchEvent(event(type))};

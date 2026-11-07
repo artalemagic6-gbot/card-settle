@@ -40,9 +40,9 @@ assert.equal(SE.fieldAffectsSummary("label"), false);
 assert.equal(SE.fieldAffectsSummary("date"), false);
 
 // --- tab order contract ---
-assert.deepEqual(SE.fieldTabOrder(true), ["date", "label", "amount", "category", "note", "chk", "del"]);
-assert.deepEqual(SE.fieldTabOrder(false), ["label", "category", "note", "chk", "del"]);
-assert.equal(SE.nextField(SE.fieldTabOrder(true), "date", false), "label");
+assert.deepEqual(SE.fieldTabOrder(true), ["date", "physical", "label", "amount", "category", "note", "chk", "del"]);
+assert.deepEqual(SE.fieldTabOrder(false), ["physical", "label", "category", "note", "chk", "del"]);
+assert.equal(SE.nextField(SE.fieldTabOrder(true), "date", false), "physical");
 assert.equal(SE.nextField(SE.fieldTabOrder(true), "label", false), "amount");
 assert.equal(SE.nextField(SE.fieldTabOrder(true), "amount", true), "label");
 assert.equal(SE.nextField(SE.fieldTabOrder(false), "label", false), "category");

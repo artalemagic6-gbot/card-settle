@@ -14,7 +14,7 @@ assert.equal(SM.cardTotals({used:10,openSum:-5}).deposit,15);assert.equal(SM.car
 let storage=JSON.stringify(fixture),saveCount=0,htmlWrites=0;const nodes=new Map();
 const node=id=>{if(!nodes.has(id)){let html="";nodes.set(id,{hidden:false,style:{},textContent:"",className:"",addEventListener(){},classList:{toggle(){}},querySelector(){return node("button")},get innerHTML(){return html},set innerHTML(v){html=v;if(id==="#app"||id==="table[data-settle-table]")htmlWrites++}})}return nodes.get(id)};
 const ctx={console,Date,Set,Map,Uint8Array,TextEncoder,Number,JSON,setTimeout,clearTimeout,fetch:async()=>({json:async()=>clone(CFG)}),document:{querySelector:node,querySelectorAll:()=>[],getElementById:id=>node("#"+id)},sessionStorage:{getItem:()=>null},localStorage:{getItem:key=>key==="card-settle-pages-v2"?storage:null,setItem:(key,value)=>{storage=value;saveCount++}},window:{}};
-vm.createContext(ctx);for(const f of ["settle-edit.js","settle-math.js","category-ui.js","app.js"])vm.runInContext(fs.readFileSync(path.join(root,"docs",f),"utf8"),ctx);
+vm.createContext(ctx);for(const f of ["settle-edit.js","settle-math.js","category-ui.js","settle-tools.js","settle-workflow.js","app.js"])vm.runInContext(fs.readFileSync(path.join(root,"docs",f),"utf8"),ctx);
 const run=s=>vm.runInContext(s,ctx),result=s=>JSON.parse(JSON.stringify(run(s)));
 (async()=>{
  // Exercise actual startup/migration: no storage writes and no data loss.

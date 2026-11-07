@@ -16,8 +16,8 @@
   /** DOM tab order of editable controls in a settle row (left → right). */
   function fieldTabOrder(isVirtual) {
     return isVirtual
-      ? ["date", "label", "amount", "category", "note", "chk", "del"]
-      : ["label", "category", "note", "chk", "del"];
+      ? ["date", "physical", "label", "amount", "category", "note", "chk", "del"]
+      : ["physical", "label", "category", "note", "chk", "del"];
   }
 
   function applyField(tx, field, raw) {
