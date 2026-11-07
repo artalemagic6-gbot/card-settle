@@ -16,3 +16,4 @@ dialog{background:var(--panel);color:var(--text);border:1px solid #435671;border
 dialog .money-input{width:100%}
 
 .estimate-note{display:block;width:fit-content;margin:3px 0 0 auto}
+.sidebar-filter{display:block;margin-top:10px}.sidebar-filter select{width:100%;font-size:12px;padding:4px 6px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
