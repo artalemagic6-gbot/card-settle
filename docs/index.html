@@ -1,10 +1,11 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>카드 정산</title><link rel="stylesheet" href="./style.css?v=20261106b"></head><body>
+<title>카드 정산</title><link rel="stylesheet" href="./style.css?v=20261107a"></head><body>
 <div id="gate" class="gate"><div class="card"><h1>카드 정산</h1><p class="k">입장 암호를 입력하세요</p>
 <form id="gf"><input id="gp" autocomplete="current-password" type="password" autocomplete="current-password" autofocus><button class="primary">입장</button><label class="showpw"><input type="checkbox" id="gshow"/> 암호 보기</label></form><p id="gerr" class="warn"></p></div></div>
 <div id="main" hidden><header><h1>카드 정산</h1><nav><button id="save" class="primary">저장</button><span id="dirty" class="k"></span>
 <button data-view="settle" class="on">정산</button><button data-view="ledger">가계부</button><button data-view="history">과거</button><button data-view="rules">규칙</button></nav></header>
 <main id="app"></main></div>
-<script src="./settle-edit.js?v=20261106b"></script>
-<script src="./app.js?v=20261106b"></script>
+<script src="./settle-edit.js?v=20261107a"></script>
+<script src="./settle-math.js?v=20261107a"></script>
+<script src="./app.js?v=20261107a"></script>
 </body></html>
