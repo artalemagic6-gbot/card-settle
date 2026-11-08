@@ -21,6 +21,7 @@ async function unlock(pass){pass=String(pass||"").trim();
  try{
   await tick();
   STG=await decrypt(pass);
+  PASS=pass;
   await start();
   sessionStorage.setItem("cs_pass",pass);
   const g=$("#gate"),m=$("#main");if(g){g.hidden=true;g.style.display="none"}if(m){m.hidden=false;m.style.display=""}
@@ -53,26 +54,105 @@ function migrate(o){const s=blank();Object.assign(s,{acct:o.acct||s.acct,cur:o.c
 function rec(t,s){const c=CFG.cards.find(x=>x.id===t.card)||{};return{lid:"L"+(s.ledger.length+1)+"-"+Date.now().toString(36)+"-"+t.id,date:t.date,orig:t.orig,label:t.label,amount:t.amount,
  sourceAmount:U.parseMoney(t.sourceAmount??t.amount),amountEstimated:!!t.amountEstimated,category:t.category,note:t.note||"",card:t.card,cardName:c.name,cardRef:U.safeCard(t.cardRef),physicalRef:U.cardRef(t),cardLabel:U.cardLabel(t,s),account:c.account,approval_no:t.approval_no||null,virtual:!!t.virtual,
  cycleStart:s.cards[t.card]?.cycleStart||null,cycleUsed:s.cards[t.card]?.used||0,loadedAt:t.loadedAt||null,settledAt:now()}}
+function normalizeState(s){s.accounts=SM.normalizeAccounts(s.accounts,CFG.accounts);s.cats=s.cats||[...CFG.cats];
+ s.cards=s.cards||{};for(const c of CFG.cards)if(!s.cards[c.id])s.cards[c.id]={used:0,cycleStart:now()};
+ s.txs=s.txs||[];s.ledger=s.ledger||[];s.cycles=s.cycles||[];s.catColors=CU.normalizeColors(s.catColors,s.cats);Object.assign(s,U.normalizedState(s));return s}
 async function start(){CFG=await (await fetch("./data/config.json",{cache:"no-store"})).json();
+ // Browser copy is read unchanged (no startup writes). With a server connection the confirmed server copy wins.
  const raw=localStorage.getItem(KEY);if(raw)S=JSON.parse(raw);else{const o=localStorage.getItem(OLD);S=o?migrate(JSON.parse(o)):blank()}
- S.accounts=SM.normalizeAccounts(S.accounts,CFG.accounts);S.cats=S.cats||[...CFG.cats];
- S.cards=S.cards||{};for(const c of CFG.cards)if(!S.cards[c.id])S.cards[c.id]={used:0,cycleStart:now()};
- S.txs=S.txs||[];S.ledger=S.ledger||[];S.cycles=S.cycles||[];S.catColors=CU.normalizeColors(S.catColors,S.cats);Object.assign(S,U.normalizedState(S));D=draftOf(S);
+ normalizeState(S);D=draftOf(S);dirty=false;
  document.querySelectorAll("nav button[data-view]").forEach(b=>b.onclick=()=>{view=b.dataset.view;document.querySelectorAll("nav button[data-view]").forEach(x=>x.classList.toggle("on",x===b));render()});
- $("#save").onclick=doSave;window.onbeforeunload=e=>{if(dirty){e.preventDefault();e.returnValue=""}};render()}
+ $("#save").onclick=()=>{saveTask=doSave();return saveTask};window.onbeforeunload=e=>{if(dirty||REMOTE.busy||REMOTE.unknown){e.preventDefault();e.returnValue=""}};bindRemoteUi();
+ connectGen++;REMOTE={...REMOTE,cfg:await loadRemoteCfg(),client:null,sha:null,connected:false,connecting:false,offer:null,unknown:null,busy:false,error:""};
+ const stored=REMOTE.cfg&&PASS?localStorage.getItem(RKEY_TOKEN):null;
+ if(stored){try{await connectRemote(await RS.decryptToken(stored,PASS,REMOTE.cfg),{auto:true})}catch(e){REMOTE.error=String(e&&e.message||e)}}
+ remoteStatus(REMOTE.connected?"서버 연결됨":"연결 필요");render()}
 // Selection is view-only (ids, never saved). Pending intent lives on draft rows as t.pending and only takes effect at top Save.
 const selected=new Set();
 function draftOf(st){const d=clone(st);for(const t of d.txs||[]){delete t.chk;delete t.pending}return d}
 function persist(state=S){localStorage.setItem(KEY,JSON.stringify(state))}
 function touch(){dirty=true;$("#dirty").textContent="저장 안 됨"}
-function doSave(){const next=clone(D);const drop=new Set(next.txs.filter(t=>t.pending==="delete").map(t=>t.id));next.txs=next.txs.filter(t=>!drop.has(t.id));Object.assign(next,U.normalizedState(next),U.learn(next,now()));
+function buildNext(){const next=clone(D);const drop=new Set(next.txs.filter(t=>t.pending==="delete").map(t=>t.id));next.txs=next.txs.filter(t=>!drop.has(t.id));Object.assign(next,U.normalizedState(next),U.learn(next,now()));
  // Prepare a complete next state first. Storage failure must not move rows or teach rules.
  if(next.lastReconciledAt!==S.lastReconciledAt)next.cutoffHistory.push({previous:S.lastReconciledAt,current:next.lastReconciledAt,savedAt:now()});
  for(const c of CFG.cards){const o=S.cards[c.id]||{},n=next.cards[c.id];if(o.used&&n.used!==o.used){
   next.cycles.push({card:c.id,cardName:c.name,used:o.used,start:o.cycleStart,closedAt:now(),formulaVersion:3,accountId:c.account,cardDeposit:calcIn(S,c.id).deposit,accountNeed:accountCalcIn(S,c.account).need,safetyBuffer:accountCalcIn(S,c.account).safetyBuffer,openLeft:S.txs.filter(t=>t.card===c.id).length,balance:S.accounts[c.account].balance});n.cycleStart=now()}}
  const keep=[];for(const t of next.txs){delete t.categoryEdited;const settle=t.pending==="settle";delete t.chk;delete t.pending;if(settle)next.ledger.push(rec(t,next));else keep.push(t)}next.txs=keep;
- try{persist(next)}catch(e){alert("저장하지 못했어요. 입력과 정산·삭제 예정은 그대로 남아 있어요. 저장 공간을 확인한 뒤 다시 저장해주세요.");return false}
- S=next;D=draftOf(next);selected.clear();dirty=false;$("#dirty").textContent="저장됨";render();return true}
+ return next}
+// --- server storage (private GitHub repo, client-side encrypted) ---
+const RS=globalThis.RemoteSync,RKEY_TOKEN="card-settle-remote-token-v1",RKEY_MARK="card-settle-remote-v1";
+let PASS="",saveTask=null,connectGen=0,REMOTE={cfg:null,client:null,sha:null,connected:false,busy:false,connecting:false,unknown:null,offer:null,error:""};
+async function loadRemoteCfg(){try{const r=await fetch("./data/remote.json",{cache:"no-store"});const c=await r.json();return RS.validConfig(c)?c:null}catch(_){return null}}
+const repoTarget=()=>REMOTE.cfg?`${REMOTE.cfg.owner}/${REMOTE.cfg.repo}@${REMOTE.cfg.branch}:${REMOTE.cfg.path}`:"";
+// Change detector for the browser copy (not a security hash): the link is trusted only while that copy is byte-identical.
+function digest(text){if(text==null)return "none";let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<text.length;i++){const c=text.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return `${text.length}:${(h2>>>0).toString(16)}${(h1>>>0).toString(16)}`}
+function readMark(){try{return JSON.parse(localStorage.getItem(RKEY_MARK)||"null")}catch(_){return null}}
+function writeMark(sha){localStorage.setItem(RKEY_MARK,JSON.stringify({v:2,target:repoTarget(),sha,digest:digest(localStorage.getItem(KEY)),at:now()}))}
+function trustedLink(){const m=readMark();return !!m&&m.v===2&&m.target===repoTarget()&&typeof m.sha==="string"&&m.digest===digest(localStorage.getItem(KEY))}
+const noLocalCopy=()=>localStorage.getItem(KEY)==null&&localStorage.getItem(OLD)==null;
+const draftPrint=()=>JSON.stringify(D)+"|"+[...selected].sort().join(",");
+const hasLocalWork=()=>dirty||selected.size>0||(D?.txs||[]).some(t=>t.pending);
+const stateCounts=s=>`내역 ${(s.txs||[]).length}건 · 정산 기록 ${(s.ledger||[]).length}건 · 과거 회차 ${(s.cycles||[]).length}건 · 학습 분류 ${(s.learnedRules||[]).length}건`;
+function remoteStatus(text){REMOTE.status=text;const n=$("#remote-status");if(n)n.textContent=text;const b=$("#save");if(b){b.disabled=!!REMOTE.busy;b.textContent=REMOTE.unknown?"서버 다시 확인":"저장"}const c=$("#remote");if(c)c.textContent=REMOTE.connected?"서버 연결됨":"서버 연결"}
+function applyLock(){const ws=document.querySelector(".workspace");const on=!!(REMOTE.busy||REMOTE.unknown||REMOTE.connecting);if(ws){ws.inert=on;ws.toggleAttribute("inert",on);ws.setAttribute("aria-busy",String(on))}const b=$("#save");if(b)b.disabled=!!REMOTE.busy}
+function setBusy(on){REMOTE.busy=on;applyLock()}
+let lastDownload=null;
+function download(name,obj){const text=JSON.stringify(obj,null,1);lastDownload={name,text};try{const url=URL.createObjectURL(new Blob([text],{type:"application/json"})),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(_){}}
+const backupSaved=()=>download(`card-settle-saved-${now().slice(0,10)}.json`,{kind:"card-settle-saved-backup",exportedAt:now(),state:S});
+const backupDraft=()=>download(`card-settle-draft-${now().slice(0,10)}.json`,{kind:"card-settle-draft-backup",exportedAt:now(),draft:D});
+async function rememberToken(token,remember){if(remember)localStorage.setItem(RKEY_TOKEN,await RS.encryptToken(token,PASS,REMOTE.cfg));else localStorage.removeItem(RKEY_TOKEN)}
+function adoptRemote(st,sha,explicit){S=normalizeState(st);D=draftOf(S);selected.clear();dirty=false;$("#dirty").textContent="";REMOTE.sha=sha;REMOTE.connected=true;REMOTE.offer=null;if(explicit){try{writeMark(sha)}catch(_){}}}
+async function connectRemote(token,{remember=null,auto=false}={}){if(!REMOTE.cfg)throw new RS.RemoteError("config","서버 저장 설정이 없어요");if(!PASS)throw new RS.RemoteError("decrypt","입장 암호가 필요해요");
+ if(REMOTE.busy||REMOTE.connecting)throw new RS.RemoteError("busy","이미 서버를 확인하는 중이에요");
+ // Serialized: workspace locked; nothing in REMOTE changes unless every check succeeds; stale completions are ignored.
+ const gen=++connectGen,fp=draftPrint();REMOTE.connecting=true;applyLock();
+ try{const client=RS.makeClient({fetch:(u,o)=>fetch(u,o),cfg:REMOTE.cfg,token});await client.checkRepo();const cur=await client.read();
+  const got=cur.exists?await RS.decryptState(cur.text,PASS):null;
+  if(gen!==connectGen)return "stale";
+  if(remember!==null)await rememberToken(token,remember);
+  REMOTE.client=client;REMOTE.offer=null;
+  if(!got){REMOTE.connected=false;REMOTE.sha=null;REMOTE.offer={type:"migrate"};return "migrate"}
+  if(REMOTE.sha&&cur.sha===REMOTE.sha){REMOTE.connected=true;return "same"}
+  const st=normalizeState(got.state),changedMeanwhile=draftPrint()!==fp;
+  if(!changedMeanwhile&&!hasLocalWork()&&(noLocalCopy()||trustedLink()||JSON.stringify(S)===JSON.stringify(st))){adoptRemote(st,cur.sha,!auto&&!trustedLink());return "adopted"}
+  REMOTE.connected=false;REMOTE.offer={type:"choose",state:st,sha:cur.sha};return "choose"}
+ finally{if(gen===connectGen){REMOTE.connecting=false;applyLock()}}}
+async function firstUpload(){if(REMOTE.busy||REMOTE.connecting||!REMOTE.client||REMOTE.offer?.type!=="migrate")return false;
+ if(!confirm(`이 브라우저에 저장된 데이터를 서버에 처음 올릴까요?\n${stateCounts(S)}\n저장 안 된 변경은 올리지 않고 그대로 남아요.`))return false;
+ const saveId=RS.newSaveId();setBusy(true);remoteStatus("서버 저장 중");let r;
+ try{r=await RS.saveRemote({client:REMOTE.client,text:await RS.encryptState(S,PASS,saveId),saveId,baseSha:null})}catch(e){r={status:"failed",error:e}}
+ return finishSave(r,{migrate:true,saveId,baseSha:null})}
+async function doSave(){if(REMOTE.busy||REMOTE.connecting)return false;if(REMOTE.unknown)return resolveUnknown();
+ if(!REMOTE.connected){remoteStatus("연결 필요");openRemote("서버에 연결해야 저장할 수 있어요. 작성 중인 내용은 그대로 남아 있어요.");return false}
+ const next=buildNext(),saveId=RS.newSaveId(),baseSha=REMOTE.sha;setBusy(true);remoteStatus("서버 저장 중");let r;
+ try{r=await RS.saveRemote({client:REMOTE.client,text:await RS.encryptState(next,PASS,saveId),saveId,baseSha})}catch(e){r={status:"failed",error:e}}
+ return finishSave(r,{next,saveId,baseSha})}
+async function resolveUnknown(){const u=REMOTE.unknown;if(!u||REMOTE.busy)return false;setBusy(true);remoteStatus("서버 확인 중");return finishSave(await RS.verify(REMOTE.client,u.saveId,u.baseSha,null),u)}
+function finishSave(r,ctx){REMOTE.busy=false;
+ if(r.status==="ok"){REMOTE.unknown=null;applyLock();if(ctx.migrate){REMOTE.sha=r.sha;REMOTE.connected=true;REMOTE.offer=null;try{writeMark(r.sha)}catch(_){alert("서버에는 올렸어요. 다만 이 브라우저 표시 저장에 실패했어요.")}closeRemote();remoteStatus("서버 저장됨");render();return true}
+  S=ctx.next;D=draftOf(S);selected.clear();dirty=false;REMOTE.sha=r.sha;$("#dirty").textContent="";
+  try{persist(S);writeMark(r.sha)}catch(e){alert("서버에는 저장됐어요. 다만 이 브라우저 보관본을 쓰지 못했어요. 다시 저장할 필요는 없어요.")}
+  remoteStatus("서버 저장됨");render();return true}
+ if(r.status==="unknown"){REMOTE.unknown=ctx;applyLock();remoteStatus("저장 확인 필요");alert("서버 저장 결과를 확인하지 못했어요. 편집은 잠시 잠가둘게요. 연결을 확인한 뒤 '서버 다시 확인'을 눌러주세요.");return false}
+ REMOTE.unknown=null;applyLock();
+ if(r.status==="conflict"){remoteStatus("저장 충돌");REMOTE.offer={type:"conflict"};openRemote("다른 곳에서 먼저 저장한 서버 저장본이 있어요. 작성 중인 내용과 정산·삭제 예정은 그대로 있어요. 작성 중 백업을 받은 뒤 서버 버전을 불러올 수 있어요.");return false}
+ const k=r.error&&r.error.kind;if(["auth","forbidden","repoMissing","notFound","public"].includes(k))REMOTE.connected=false;
+ remoteStatus(REMOTE.connected?"저장 실패":"연결 필요");alert(`서버에 저장하지 못했어요. 입력과 정산·삭제 예정은 그대로 남아 있어요.${r.error&&r.error.message?" ("+r.error.message+")":""}`);return false}
+async function reloadFromServer(){if(REMOTE.busy||REMOTE.connecting||!REMOTE.client)return false;if(hasLocalWork()&&!confirm("작성 중인 변경, 선택, 정산·삭제 예정을 버리고 서버 최신 저장본을 불러올까요? 먼저 '작성 중 백업'을 받아두는 것을 권해요."))return false;
+ const fp=draftPrint();setBusy(true);try{const cur=await REMOTE.client.read();if(!cur.exists)throw new RS.RemoteError("notFound","서버 저장본이 없어요");const got=await RS.decryptState(cur.text,PASS);if(draftPrint()!==fp)throw new RS.RemoteError("changed","불러오는 동안 화면이 바뀌어서 적용하지 않았어요. 다시 눌러주세요.");adoptRemote(got.state,cur.sha,true);closeRemote();remoteStatus("서버 연결됨");render();return true}
+ catch(e){remoteStatus(REMOTE.connected?"서버 연결됨":"연결 필요");remoteMsg(String(e.message||e));return false}finally{setBusy(false)}}
+async function useServerCopy(){const o=REMOTE.offer;if(!o||o.type!=="choose")return false;if(!confirm(`이 브라우저 저장본 대신 서버 데이터를 사용할까요?\n서버: ${stateCounts(o.state)}\n이 브라우저: ${stateCounts(S)}\n이 브라우저 보관본은 지우지 않아요.${hasLocalWork()?" 작성 중 변경·선택·정산/삭제 예정은 사라져요.":""}`))return false;adoptRemote(o.state,o.sha,true);closeRemote();remoteStatus("서버 연결됨");render();return true}
+const remoteMsg=t=>{const m=$("#remote-msg");if(m)m.textContent=t};
+function openRemote(msg){const dlg=$("#remote-dialog");if(!dlg)return;const o=REMOTE.offer,acts=$("#remote-actions");
+ remoteMsg(msg||(o?.type==="migrate"?`서버에 저장본이 아직 없어요. 이 브라우저 저장본(${stateCounts(S)})을 확인하고 '저장본 백업'을 받은 뒤 처음 올려주세요.`:o?.type==="choose"?`서버 데이터와 이 브라우저 저장본이 달라요. 서버: ${stateCounts(o.state)} / 이 브라우저: ${stateCounts(S)}. 자동으로 덮어쓰지 않아요.`:REMOTE.connected?"서버에 연결돼 있어요.":REMOTE.error||"이 저장소 하나만 Contents 읽기/쓰기 권한이 있는 GitHub 토큰을 입력하세요."));
+ acts.innerHTML=(o?.type==="migrate"?'<button type="button" id="remote-migrate" class="primary">서버로 처음 올리기</button>':o?.type==="choose"?'<button type="button" id="remote-use-server">서버 데이터 사용</button>':o?.type==="conflict"?'<button type="button" id="remote-reload">서버 버전 불러오기</button>':"")+(localStorage.getItem(RKEY_TOKEN)?'<button type="button" id="remote-forget" class="subtle">기억한 토큰 지우기</button>':"");
+ const b=(id,f)=>{const n=document.getElementById(id);if(n)n.onclick=()=>{saveTask=f();return saveTask}};b("remote-migrate",firstUpload);b("remote-use-server",useServerCopy);b("remote-reload",reloadFromServer);b("remote-forget",()=>{localStorage.removeItem(RKEY_TOKEN);openRemote("기억한 토큰을 지웠어요.")});
+ if(!dlg.open)dlg.showModal()}
+function closeRemote(){const dlg=$("#remote-dialog");if(dlg?.open)dlg.close();const t=$("#remote-token");if(t)t.value=""}
+async function connectFromForm(){const t=$("#remote-token"),token=String(t?.value||"").trim();if(!token){remoteMsg("토큰을 입력해 주세요.");return false}remoteMsg("확인 중…");
+ try{const r=await connectRemote(token,{remember:!!$("#remote-remember")?.checked});if(t)t.value="";remoteStatus(REMOTE.connected?"서버 연결됨":"연결 필요");if(r==="adopted"||r==="same"){render();closeRemote();return true}openRemote();return false}
+ catch(e){if(t)t.value="";remoteStatus(REMOTE.connected?"서버 연결됨":"연결 필요");remoteMsg(String(e&&e.message||e));return false}}
+function bindRemoteUi(){const b=(s,f)=>{const n=$(s);if(n)n.onclick=f};b("#remote",()=>openRemote());b("#remote-connect",()=>{saveTask=connectFromForm();return saveTask});b("#remote-close",closeRemote);b("#remote-backup-saved",backupSaved);b("#remote-backup-draft",backupDraft)}
 function classify(m,cid="",ref="",fallback=""){return U.resolveCategory(D,CFG.rules,m,cid,ref,fallback)}
 const cardsOf=a=>CFG.cards.filter(c=>c.account===a).sort((x,y)=>x.sort-y.sort);
 function calcIn(st,cid){const list=(st.txs||[]).filter(t=>t.card===cid);const os=list.reduce((a,t)=>a+SM.number(t.amount),0);
