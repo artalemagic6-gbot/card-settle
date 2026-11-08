@@ -18,3 +18,4 @@ dialog .money-input{width:100%}
 .estimate-note{display:block;width:fit-content;margin:3px 0 0 auto}
 .sidebar-filter{display:block;margin-top:10px}.sidebar-filter select{width:100%;font-size:12px;padding:4px 6px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .settle-toolbar{align-items:center}.toolbar-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}.pending-badge{display:block;font-size:9px;color:#9fb8ef;white-space:nowrap}tr.pending-delete td{opacity:.55}tr.pending-delete .k{text-decoration:line-through}tr.pending-delete .pending-badge{color:#ef9f9f}
+#remote-status{font-size:11px}#remote-dialog{width:480px;max-width:94vw}#remote-dialog input#remote-token{width:100%}#remote-msg{min-height:1.4em;overflow-wrap:anywhere}.workspace[inert]{opacity:.6}

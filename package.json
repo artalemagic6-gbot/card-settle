@@ -7,7 +7,7 @@
     "start": "node server.js",
     "import-sample": "node scripts/import-sample.js",
     "build:static": "node scripts/build-static.js",
-    "test:pages": "node scripts/test-settle-edit.js && node scripts/test-settle-math.js && node scripts/test-category-ui.js && node scripts/test-settle-workflow.js"
+    "test:pages": "node scripts/test-settle-edit.js && node scripts/test-settle-math.js && node scripts/test-category-ui.js && node scripts/test-settle-workflow.js && node scripts/test-remote-sync.js"
   },
   "engines": {
     "node": ">=18"
