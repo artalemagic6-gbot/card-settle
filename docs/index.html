@@ -1,19 +1,20 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>카드 정산</title><link rel="stylesheet" href="./style.css?v=20261108b"></head><body>
+<title>카드 정산</title><link rel="stylesheet" href="./style.css?v=20261111a"></head><body>
 <div id="gate" class="gate"><div class="card"><h1>카드 정산</h1><p class="k">입장 암호를 입력하세요</p>
 <form id="gf"><input id="gp" autocomplete="current-password" type="password" autocomplete="current-password" autofocus><button class="primary">입장</button><label class="showpw"><input type="checkbox" id="gshow"/> 암호 보기</label></form><p id="gerr" class="warn"></p></div></div>
-<div id="main" hidden><header><h1>카드 정산</h1><nav><button id="save" class="primary">저장</button><span id="dirty" class="k"></span><span id="remote-status" class="k" role="status">연결 필요</span><button type="button" id="remote" class="subtle">서버 연결</button>
+<div id="main" hidden><header><h1>카드 정산</h1><nav><button id="save" class="primary">저장</button><span id="dirty" class="k"></span><span id="remote-status" class="k" role="status">연결 필요</span><button type="button" id="remote-alert" class="subtle" hidden>연결 필요</button><details id="settings-menu"><summary>설정</summary><div><button type="button" id="remote" class="subtle">서버 연결·백업</button><small>업데이트 후 모든 기기·탭을 새로고침해주세요.</small></div></details>
 <button data-view="settle" class="on">정산</button><button data-view="ledger">가계부</button><button data-view="history">과거</button><button data-view="rules">분류·규칙</button></nav></header>
 <div class="workspace"><aside id="category-sidebar" aria-label="전체 카드 분류별 정산 예정"></aside><main id="app"></main></div>
 <dialog id="account-dialog" aria-labelledby="account-dialog-title"><form id="account-form"><h2 id="account-dialog-title">계좌 설정</h2><label for="buffer">안전여유금</label><input id="buffer" class="money-input" type="text" inputmode="decimal" required><p class="k">적용 후 상단 저장을 눌러야 반영돼요.</p><div class="dialog-actions"><button type="button" id="account-cancel" class="subtle">취소</button><button type="submit" class="primary">적용</button></div></form></dialog>
 <dialog id="cutoff-dialog" aria-labelledby="cutoff-title"><form id="cutoff-form"><h2 id="cutoff-title">최근 정리일 설정</h2><p class="k">이 시각 이후의 내역을 다음에 준비해요. 일반 저장이나 불러오기로 자동 변경되지 않아요.</p><label for="cutoff-value">정리한 마지막 일시 (한국시간)</label><input id="cutoff-value" type="datetime-local" required><p class="k">적용 후 상단 저장을 눌러주세요.</p><div class="dialog-actions"><button type="button" id="cutoff-cancel" class="subtle">취소</button><button type="submit" class="primary">적용</button></div></form></dialog>
 <dialog id="card-dialog" aria-labelledby="card-dialog-title"><form id="card-form"><h2 id="card-dialog-title">카드 설정</h2><p class="k">카드사 안에서 구분할 짧은 표시 이름이에요. 전체 카드번호는 저장하지 않아요.</p><div id="card-aliases"></div><label for="new-card-ref">새 카드 구분 (카드명 또는 끝 네 자리)</label><input id="new-card-ref" autocomplete="off" placeholder="예: 생활카드 1234"><label for="new-card-label">표시 이름</label><input id="new-card-label" autocomplete="off" placeholder="예: 생활카드"><p class="k">적용 후 상단 저장을 눌러주세요. 과거 가계부의 표시 이름은 바뀌지 않아요.</p><div class="dialog-actions"><button type="button" id="card-cancel" class="subtle">취소</button><button type="submit" class="primary">적용</button></div></form></dialog></div>
 <dialog id="remote-dialog" aria-labelledby="remote-title"><form id="remote-form" onsubmit="return false"><h2 id="remote-title">서버 저장 연결</h2><p class="k">저장한 데이터를 비공개 GitHub 저장소에 입장 암호로 암호화해 보관해요. 토큰은 서버 데이터와 백업 파일에 들어가지 않아요.</p><label for="remote-token">GitHub 토큰</label><input id="remote-token" type="password" autocomplete="off" spellcheck="false"><label class="showpw"><input type="checkbox" id="remote-remember"> 이 브라우저에 기억 (입장 암호로 암호화)</label><p id="remote-msg" class="k" role="status"></p><div id="remote-actions" class="dialog-actions"></div><div class="dialog-actions"><button type="button" id="remote-backup-saved" class="subtle">저장본 백업</button><button type="button" id="remote-backup-draft" class="subtle">작성 중 백업</button><button type="button" id="remote-close" class="subtle">닫기</button><button type="button" id="remote-connect" class="primary">연결</button></div></form></dialog>
-<script src="./settle-edit.js?v=20261107d"></script>
-<script src="./settle-math.js?v=20261107d"></script>
-<script src="./category-ui.js?v=20261107d"></script>
-<script src="./settle-tools.js?v=20261107d"></script>
-<script src="./settle-workflow.js?v=20261107d"></script>
-<script src="./remote-sync.js?v=20261108b"></script>
-<script src="./app.js?v=20261108b"></script>
+<script src="./settle-edit.js?v=20261111a"></script>
+<script src="./settle-math.js?v=20261111a"></script>
+<script src="./category-ui.js?v=20261111a"></script>
+<script src="./category-state.js?v=20261111a"></script>
+<script src="./settle-tools.js?v=20261111a"></script>
+<script src="./settle-workflow.js?v=20261111a"></script>
+<script src="./remote-sync.js?v=20261111a"></script>
+<script src="./app.js?v=20261111a"></script>
 </body></html>

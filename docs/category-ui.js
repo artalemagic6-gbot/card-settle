@@ -12,11 +12,11 @@
  function categoryTotals(cats,txs){const sums=new Map(orderedCategories(cats,txs).map(c=>[c,0]));for(const t of txs){const c=categoryName(t.category),n=Number(t.amount);sums.set(c,sums.get(c)+(Number.isFinite(n)?n:0))}return [...sums].map(([category,amount])=>({category,amount}))}
  function paintTransactionRow(row,category,colors){if(!row)return;const color=colorFor(category,colors);row.style.setProperty("--cat-color",color);row.style.setProperty("--cat-wash",color+"18");row.classList.add("category-row")}
  let serial=0,closeActive=null;
- function mountCategoryPicker(button,{getOptions,getValue,getColors=()=>({}),onCommit}){
+ function mountCategoryPicker(button,{getOptions,getValue,getColors=()=>({}),getLabel=categoryName,onCommit}){
   const doc=button.ownerDocument,win=doc.defaultView;let menu=null,active=0,options=[],items=[];
   const id="category-list-"+(++serial);
   button.type="button";button.setAttribute("role","combobox");button.setAttribute("aria-haspopup","listbox");button.setAttribute("aria-expanded","false");button.setAttribute("aria-controls",id);button.setAttribute("aria-label","분류 선택");
-  function refresh(){const value=categoryName(getValue()),color=colorFor(value,getColors());button.textContent=value;button.style.setProperty("--cat-color",color);button.setAttribute("aria-label","분류: "+value+". Alt+아래 화살표로 목록 열기")}
+  function refresh(){const value=categoryName(getValue()),color=colorFor(value,getColors());button.textContent=getLabel(value);button.style.setProperty("--cat-color",color);button.setAttribute("aria-label","분류: "+getLabel(value)+". Alt+아래 화살표로 목록 열기")}
   function close(){if(!menu)return;menu.remove();menu=null;items=[];button.setAttribute("aria-expanded","false");button.removeAttribute("aria-activedescendant");doc.removeEventListener("pointerdown",outside,true);win.removeEventListener("resize",close);win.removeEventListener("scroll",scrollClose,true);if(closeActive===close)closeActive=null}
   function scrollClose(e){if(menu&&!menu.contains(e.target))close()}
   function outside(e){if(menu&&!menu.contains(e.target)&&!button.contains(e.target))close()}
@@ -25,7 +25,7 @@
   function open(){if(menu)return;if(closeActive)closeActive();options=getOptions().map(categoryName);if(!options.length)return;
    menu=doc.createElement("div");menu.id=id;menu.className="category-menu";menu.setAttribute("role","listbox");menu.setAttribute("aria-label","분류 선택");
    const hint=doc.createElement("div");hint.className="category-menu-hint";hint.textContent="번호·문자로 선택 · Esc 닫기";hint.setAttribute("aria-hidden","true");menu.append(hint);
-   items=options.map((name,i)=>{const el=doc.createElement("div");el.id=id+"-"+i;el.className="category-option";el.setAttribute("role","option");el.style.setProperty("--cat-color",colorFor(name,getColors()));const key=doc.createElement("kbd");key.textContent=shortcutAt(i);const text=doc.createElement("span");text.textContent=name;el.append(key,text);el.addEventListener("pointerdown",e=>e.preventDefault());el.addEventListener("click",()=>commit(i));menu.append(el);return el});
+   items=options.map((name,i)=>{const el=doc.createElement("div");el.id=id+"-"+i;el.className="category-option";el.setAttribute("role","option");el.style.setProperty("--cat-color",colorFor(name,getColors()));const key=doc.createElement("kbd");key.textContent=shortcutAt(i);const text=doc.createElement("span");text.textContent=getLabel(name);el.append(key,text);el.addEventListener("pointerdown",e=>e.preventDefault());el.addEventListener("click",()=>commit(i));menu.append(el);return el});
    doc.body.append(menu);const rect=button.getBoundingClientRect(),height=Math.min(320,win.innerHeight-24),width=Math.min(248,win.innerWidth-24);
    menu.style.width=width+"px";menu.style.maxHeight=height+"px";menu.style.left=Math.max(12,Math.min(rect.left,win.innerWidth-width-12))+"px";menu.style.top=Math.max(12,Math.min(rect.bottom+6,win.innerHeight-height-12))+"px";
    button.setAttribute("aria-expanded","true");closeActive=close;doc.addEventListener("pointerdown",outside,true);win.addEventListener("resize",close);win.addEventListener("scroll",scrollClose,true);activate(Math.max(0,options.indexOf(categoryName(getValue()))));
