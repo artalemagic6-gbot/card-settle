@@ -1,16 +1,16 @@
 {
  "v": 2,
- "file": "staging-6b6ccf63a818df60.enc",
+ "file": "staging-6a75fbf55747c4d5.enc",
  "kdf": {
   "name": "PBKDF2",
   "hash": "SHA-256",
   "iterations": 100000,
-  "salt": "Bzl9lsGfpGqn2Jn0prfXYQ=="
+  "salt": "45NsgGYJvo6iQ12Y2FjDOQ=="
  },
  "cipher": {
   "name": "AES-GCM",
   "length": 256,
-  "iv": "H9ZqaFQkHDT9wbXB",
+  "iv": "FGk+JCb5nGS9GSKc",
   "tag": "appended-16-bytes"
  },
  "cards": [
@@ -25,5 +25,5 @@
   "bc",
   "hyundai"
  ],
- "generated": "2026-11-07T14:55:01.078Z"
+ "generated": "2026-11-10T14:08:48.798Z"
 }
