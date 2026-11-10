@@ -19,3 +19,9 @@ dialog .money-input{width:100%}
 .sidebar-filter{display:block;margin-top:10px}.sidebar-filter select{width:100%;font-size:12px;padding:4px 6px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .settle-toolbar{align-items:center}.toolbar-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}.pending-badge{display:block;font-size:9px;color:#9fb8ef;white-space:nowrap}tr.pending-delete td{opacity:.55}tr.pending-delete .k{text-decoration:line-through}tr.pending-delete .pending-badge{color:#ef9f9f}
 #remote-status{font-size:11px}#remote-dialog{width:480px;max-width:94vw}#remote-dialog input#remote-token{width:100%}#remote-msg{min-height:1.4em;overflow-wrap:anywhere}.workspace[inert]{opacity:.6}
+
+/* Both previews remain visible without covering one another on mobile or desktop. */
+.settle-toolbar{position:sticky;top:calc(var(--header-height) + var(--account-height,160px) + 16px);z-index:25;background:var(--panel);padding:8px;border:1px solid var(--line);border-radius:9px}
+#selection-summary{flex:1;min-width:180px;font-size:13px}#selection-summary[hidden]{display:none}#selection-summary small{display:block;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+#main>header{z-index:50}#settings-menu{position:relative;font-size:12px;color:var(--muted)}#settings-menu>summary{cursor:pointer;padding:7px 10px}#settings-menu>div{position:absolute;right:0;top:100%;width:230px;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px #0006}#settings-menu small{display:block;margin-top:10px}#remote-alert{color:#e9bc66;font-size:11px}#remote-alert[hidden]{display:none}#remote-status{opacity:.75}.dialog-actions{flex-wrap:wrap}
+@media(max-width:760px){.settle-toolbar{top:calc(var(--header-height) + var(--account-height,160px) + 8px);padding:6px}.toolbar-actions{gap:4px}#selection-summary{flex-basis:100%}#settings-menu>div{right:auto;left:0}}

@@ -5,15 +5,7 @@ const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("n
 const root=path.join(__dirname,".."),RS=require("../docs/remote-sync.js"),FG=require("./fixtures/fake-github.js"),fixture=require("./fixtures/ui-example.json");
 const KEY="card-settle-pages-v2",clone=x=>JSON.parse(JSON.stringify(x));
 const rich=()=>{const s=clone(fixture.state);s.txs[0].sourceAmount=1200;s.txs[0].amount=1000;s.ledger=[{lid:"L1",date:"2026-10-01",orig:"예시",label:"예시",amount:900,sourceAmount:1000,category:"개인",card:"shinhan"}];s.cycles=[{card:"shinhan",used:10,closedAt:"2026-10-02"}];s.learnedRules=[{issuer:"shinhan",cardRef:"A",merchant:"예시",category:"개인"}];s.cardAliases={shinhan:{A:"생활"}};s.lastReconciledAt="2026-10-18T02:30:00+09:00";s.catColors={개인:"#123456"};s.accounts={"352":{balance:5,safetyBuffer:0}};return s};
-let port=0;
-async function boot({gh,local,pass=FG.PASS,storage={}}){const dom=new JSDOM(fs.readFileSync(path.join(root,"docs/index.html"),"utf8"),{url:`https://remote-${++port}.example.test/`,runScripts:"outside-only",pretendToBeVisual:true}),w=dom.window,d=w.document,alerts=[],ctx=dom.getInternalVMContext();
- Object.defineProperty(w,"crypto",{value:require("node:crypto").webcrypto,configurable:true});if(!w.TextEncoder)w.TextEncoder=TextEncoder;if(!w.TextDecoder)w.TextDecoder=TextDecoder;FG.routeFetch(w,{config:fixture.config,gh});w.alert=t=>alerts.push(t);w.confirm=()=>true;
- w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")};
- if(local)w.localStorage.setItem(KEY,JSON.stringify(local));for(const [k,v] of Object.entries(storage))w.localStorage.setItem(k,v);
- const writes=[];let failKey=false;const set=w.Storage.prototype.setItem;w.Storage.prototype.setItem=function(k,v){if(failKey&&k===KEY)throw new Error("synthetic quota");writes.push([k,v]);return set.call(this,k,v)};
- for(const m of fs.readFileSync(path.join(root,"docs/index.html"),"utf8").matchAll(/<script src="\.\/([^?]+)\?/g))vm.runInContext(fs.readFileSync(path.join(root,"docs",m[1]),"utf8"),ctx);
- const run=s=>vm.runInContext(s,ctx),el=s=>d.querySelector(s),json=s=>JSON.parse(JSON.stringify(run(s)));run(`PASS=${JSON.stringify(pass)}`);await run("start()");
- return {w,d,run,el,json,alerts,writes,dom,setFailKey:v=>{failKey=v},save:async()=>{el("#save").click();return run("saveTask")},connect:async(token=FG.TOKEN,remember=false)=>{el("#remote-token").value=token;el("#remote-remember").checked=remember;el("#remote-connect").click();return run("saveTask")}}}
+const {boot}=require("./fixtures/pages-app.js");
 const remoteState=async gh=>(await RS.decryptState(gh.file.text,FG.PASS)).state;
 const seed=async(gh,state)=>{gh.file={sha:"seed"+(++gh.n),text:await RS.encryptState(state,FG.PASS,"seed-"+gh.n)}};
 (async()=>{
